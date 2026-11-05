@@ -55,7 +55,7 @@ jobs:
             core.setOutput('enabled', String(enabled));
             await core.summary
               .addHeading('OpenAI PR Review')
-              .addRaw(`PR #${pull_number} · gpt-6-astra · reasoning high\n\n`)
+              .addRaw(`PR #${pull_number} · gpt-6-astra · reasoning medium\n\n`)
               .addRaw(`Head: ${pr.head.sha}\n\n`)
               .addRaw(enabled
                 ? 'Review configured. The next job reads the diff without executing project code.'
@@ -91,7 +91,7 @@ jobs:
           path: source
           persist-credentials: false
 
-      - name: Review with GPT-6 Astra High
+      - name: Review with GPT-6 Astra Medium
         id: codex
         uses: openai/codex-action@bdf19a4a223ec2549a3e2274a0cf61556bc07675 # v1
         env:
@@ -102,7 +102,7 @@ jobs:
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           model: gpt-6-astra
-          effort: high
+          effort: medium
           codex-version: 0.166.0
           prompt-file: ${{ github.workspace }}/trusted/.github/codex/review.md
           working-directory: ${{ github.workspace }}/source
@@ -154,6 +154,6 @@ jobs:
               pull_number,
               commit_id: head,
               event: 'COMMENT',
-              body: `${marker}\n## OpenAI Review · GPT-6 Astra High\n\n${body}`,
+              body: `${marker}\n## OpenAI Review · GPT-6 Astra Medium\n\n${body}`,
             });
             await core.summary.addLink('Published PR review', review.html_url).write();
