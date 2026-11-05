@@ -21,9 +21,9 @@ Closes #
 - [ ] **评分**：`SCORING.md` 和 `tests/score.test.mjs` 已同步
 - [ ] **数据源**：`README.md` 的检测内容、`DATA-SOURCES.md` 已同步
 - [ ] **本机查询服务**：改了 `local_server.py`、`provider_pages.py` 或 `src/page-extract.js`，已在上面说明，便于维护者同步到线上
-- [ ] **Chrome 扩展**：已升版本、重新打包到 `downloads/` 并更新所有版本引用（见 [贡献指南](https://github.com/BlackSlience-Reaper/egress-observatory/blob/main/CONTRIBUTING.md#chrome-扩展)）
+- [ ] **Chrome 扩展**：已升版本、重新打包到 `downloads/` 并更新所有版本引用（见 [贡献指南](https://github.com/BlackSlience-Reaper/egress-observatory/blob/master/CONTRIBUTING.md#chrome-扩展)）
 
 ## 提交前确认
 
 - [ ] 代码、文档、测试和截图里没有真实 IP，也没有密钥
-- [ ] PR 标题是一句英文祈使句，合并后它就是 `main` 上的提交信息
+- [ ] PR 标题是一句英文祈使句，合并后它就是 `master` 上的提交信息
