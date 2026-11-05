@@ -6,6 +6,7 @@
  */
 import { getJSON, countryCode, asnNumber, text, bool, num, parseIP, sameIP, reverseName } from './util.js';
 import { API_BASE } from '../config.js';
+import { OWN_KEY_PROVIDERS, keyFor, ownKeyResponse } from './own-keys.js?v=1';
 
 const flags = (values = {}) => ({ vpn: null, proxy: null, tor: null, hosting: null, relay: null, abuser: null, crawler: null, mobile: null, bogon: null, ...values });
 const RIPE = 'https://stat.ripe.net/data';
@@ -547,6 +548,21 @@ export const SOURCES = [
 ];
 
 /** PTR naming conventions are a weak but useful type hint. */
+async function runOwnKey(id, key, ip, ctx) {
+  const result = await ownKeyResponse(id, key, ip, url => getJSON(url, { signal: ctx.signal, timeout: 12000 }), data => sameIP(data?.ip, ip));
+  if (!result.ok) fail([401, 403].includes(result.status) ? '你的 API key 被拒绝' : result.status === 429 ? '你的 API key 额度或频率受限' : result.error);
+  if (!sameIP(result.data?.ip, ip)) fail('返回目标与查询 IP 不一致');
+  const record = workerRecord({ status: 'success', ip, ...OWN_KEY_PROVIDERS[id].fields(result.data) }, ip);
+  return { ...record, sourceNote: '使用你自己的 API key，由浏览器直接查询', _ms: result.ms };
+}
+
+// A visitor's own key takes priority: the browser asks the provider directly and the Egress API is not involved.
+for (const source of SOURCES) {
+  if (!OWN_KEY_PROVIDERS[source.id]) continue;
+  const run = source.run;
+  source.run = (ip, ctx) => { const key = keyFor(source.id); return key ? runOwnKey(source.id, key, ip, ctx) : run.call(source, ip, ctx); };
+}
+
 export function classifyHostname(hostname) {
   const name = String(hostname || '').toLowerCase();
   const base = { flags: flags(), type: null };
@@ -595,7 +611,7 @@ function fromCopy(row, reason) {
 export async function runSource(source, ip, ctx) {
   const started = performance.now();
   const copy = readCopy(source.id, ip);
-  if (source.quota && copy && Date.now() - copy.time < FRESH_MS) return fromCopy(copy, '');
+  if (source.quota && !keyFor(source.id) && copy && Date.now() - copy.time < FRESH_MS) return fromCopy(copy, '');
   try {
     const data = await source.run(ip, ctx);
     const ms = data?._ms ?? Math.round(performance.now() - started);

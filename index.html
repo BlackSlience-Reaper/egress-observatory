@@ -9,8 +9,8 @@
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>IP 纯净度检测 · Egress</title>
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./styles.css?v=3.1">
-  <script type="module" src="./src/main.js?v=4.29"></script>
+  <link rel="stylesheet" href="./styles.css?v=3.2">
+  <script type="module" src="./src/main.js?v=4.31"></script>
 </head>
 <body>
   <a class="skip-link" href="#main">跳到检测结果</a>
@@ -93,6 +93,20 @@
       <details><summary>导入 IPinfo 网页</summary><p><a id="ipinfo-page-link" target="_blank" rel="noopener noreferrer">打开当前 IP 的 IPinfo 详情页 ↗</a>，全选复制页面文字，粘贴后点击导入。</p><textarea id="ipinfo-text" aria-label="IPinfo 网页文字" maxlength="120000"></textarea> <button id="ipinfo-apply" type="button">导入 IPinfo 字段</button><p id="ipinfo-message" role="status"></p></details>
       <details><summary>从 IPSuper 补全缺失类型</summary><p>将「导入类型」拖到书签栏，再打开当前 IP 的 IPSuper 查询。结果完整后点击书签，会在新页面按数据库补全缺失字段。</p><a id="ipsuper-bookmark" draggable="true">导入类型</a> · <a id="ipsuper-query" href="https://ipsuper.com/" target="_blank" rel="noopener noreferrer">打开 IPSuper 查询 ↗</a></details>
       <details><summary>从来源网页补全</summary><p>查询时会自动尝试来源网页。将「导入来源网页」拖到书签栏；在 IPHub、IPQualityScore、IPData、IPRegistry、DB-IP、Scamalytics、IP2Location、GreyNoise 或 ipapi.is 的目标结果页点击书签，可回传已显示的字段。只补充当前 IP 的缺失字段，同库合并。</p><a id="provider-bookmark" draggable="true">导入来源网页</a><p>也可粘贴网页报告 JSON：</p><textarea id="provider-text" aria-label="来源网页报告 JSON" maxlength="16000"></textarea> <button id="provider-apply" type="button">导入来源字段</button><p id="provider-message" role="status"></p></details>
+      </details>
+      <details id="own-keys" class="type-tools"><summary>使用自己的 API key</summary>
+      <p class="muted small">这些来源允许浏览器直接查询。填入你自己的 key 后，查询由浏览器直接发给对应服务，用的是你自己的额度；key 不经过 Egress 的后端，也不会进入分享链接和导出报告。</p>
+      <p class="muted small">页面会加载 Cloudflare 和 Google 的验证脚本，它们和页面运行在同一环境，所以请使用额度受限、可随时作废的专用 key。</p>
+      <form id="own-key-form" autocomplete="off">
+        <div id="own-key-fields"></div>
+        <div class="own-key-actions">
+          <label><input id="own-key-remember" type="checkbox"> 记住在这个浏览器（不勾选则关闭标签页后清除）</label>
+          <button type="submit" class="small accent">保存并重新检测</button>
+          <button type="button" id="own-key-clear" class="small">清除所有 key</button>
+        </div>
+        <p id="own-key-status" class="muted small" role="status" aria-live="polite"></p>
+      </form>
+      <p class="muted small">其他来源不允许浏览器直接调用，无法这样使用。如果你有多余的额度，可以<a href="https://github.com/BlackSlience-Reaper/egress-observatory#捐赠-api-key" target="_blank" rel="noopener noreferrer">捐赠 key</a>。</p>
       </details>
     </section>
 

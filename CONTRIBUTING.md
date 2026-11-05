@@ -126,6 +126,8 @@ python -m playwright install chromium
 - 适配器统一放在 `src/sources.js`。未返回的字段保持 `null`，不能当作“否”。
 - 只采用实际返回、且与目标 IP 一致的字段。同一底层数据库合并计票。
 - 同步 [README.md](README.md) 的检测内容；间接来源的依据写进 [DATA-SOURCES.md](DATA-SOURCES.md)。
+- 调试需要 key 的来源时，可以在页面的“使用自己的 API key”里填自己的 key，不消耗项目额度。
+- 这类来源放在 `src/own-keys.js`，只能加入允许浏览器跨域调用的服务。key 不能经过后端，也不能进入结果、日志或导出报告。
 
 ### 后端
 

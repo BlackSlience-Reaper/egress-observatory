@@ -6,13 +6,14 @@ import { setupProviderImport, readProviderReport, mergeProviderPage, lookupChrom
 import { API_BASE } from '../config.js?v=cloud2';
 import { lookupPage } from './page-lookups.js?v=6';
 import { getJSON, parseIP, isPublicIP, sameIP, maskIP, maskText } from './util.js?v=4.1';
-import { SOURCES, runSource } from './sources.js?v=3.3';
+import { SOURCES, runSource } from './sources.js?v=3.4';
+import { setupOwnKeys } from './own-keys.js?v=1';
 import { DNSBLS, checkDNSBL, CIDR_LISTS, checkCIDRList, asnAbuseDensity } from './blocklists.js';
 import { fetchASN, inferASN, detectLease } from './asn.js?v=4.3';
 import { detectEgress, summarizeEgress, probeWebRTC, probeDNS, classifyDNS, probeTCP, probeEnvironment, probeIPv6, classifyIPv6, traceProbe } from './probes.js';
 import { runTurnstile, runRecaptcha } from './captcha.js?v=4.2';
 import { score } from './score.js?v=4.8';
-import * as view from './render.js?v=4.22';
+import * as view from './render.js?v=4.23';
 
 const $ = id => document.getElementById(id);
 $('types').addEventListener('click',event=>{if(event.target.closest('[data-lookup-details]'))$('lookup-details').open=true;});
@@ -487,6 +488,7 @@ $('mask-toggle').addEventListener('click', () => { app.masked = !app.masked; loc
 $('share').addEventListener('click', share);
 $('export').addEventListener('click', exportReport);
 $('rerun').addEventListener('click', () => app.run && startRun(app.run.ip));
+setupOwnKeys(() => { if (app.run) startRun(app.run.ip); });
 document.addEventListener('click', event => {
   const check = event.target.closest('[data-check]');
   if (check) { startRun(check.dataset.check); window.scrollTo({ top: 0, behavior: 'smooth' }); }

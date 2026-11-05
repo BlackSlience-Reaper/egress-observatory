@@ -78,6 +78,16 @@ Egress 联合 20 多个 IP 数据库、16 个 DNS 黑名单、17 个威胁、代
 
 审查规则保存在 [`.github/codex/review.md`](.github/codex/review.md)，从默认分支读取。审查 job 对代码只读、禁止联网和执行项目代码，发布 job 独立运行且不接触 OpenAI 密钥；默认仅有仓库写权限的触发者可以调用模型。报告区分静态证据与实际运行，遵守不新增、不运行测试的项目规则。GitHub 自动审查与 OpenAI Platform 中保存的 Agent 定义分别配置。
 
+## 使用自己的 API key
+
+IPinfo、IPRegistry、IPData、vpnapi.io 和 ipapi.is 允许浏览器直接调用。在页面的“多源 IP 类型 → 使用自己的 API key”里填入 key 后，这些来源由你的浏览器直接查询，用的是你自己的额度。
+
+- key 只发给对应的服务，不经过 Egress 的后端，也不会进入分享链接和导出报告。
+- 默认只保留到关闭标签页；勾选“记住”后保存在这个浏览器，随时可以清除。
+- 页面会加载 Cloudflare 和 Google 的验证脚本，它们和页面运行在同一环境，所以请使用额度受限、可随时作废的专用 key。
+
+Proxycheck、IPQualityScore、AbuseIPDB、GreyNoise、IPHub 和 VirusTotal 不允许浏览器直接调用，无法这样使用。
+
 ## 本地运行
 
 需要 Python 3；只有跑测试时才需要 Node.js。
@@ -163,7 +173,7 @@ npm test
 
 ## 隐私
 
-被检测的 IP 会发送给上面列出的数据服务；连接实测会让浏览器访问 STUN、bash.ws、ip-api EDNS、tcpip.incolumitas.com、Cloudflare 与 Google。页面没有账号或第三方统计，导出报告在浏览器本地生成。为了估计共享人数，本站 API 会记录每次检测的目标 IP 与查询方，查询方只以加盐哈希保存（盐值随机生成、只存在服务端数据库），不保存查询者 IP 或浏览器标识原文；超过 30 天的记录不再计入，并在之后任何一次检测时删除；浏览器里保存一个随机生成的匿名标识。
+被检测的 IP 会发送给上面列出的数据服务；连接实测会让浏览器访问 STUN、bash.ws、ip-api EDNS、tcpip.incolumitas.com、Cloudflare 与 Google。页面没有账号或第三方统计，导出报告在浏览器本地生成。为了估计共享人数，本站 API 会记录每次检测的目标 IP 与查询方，查询方只以加盐哈希保存（盐值随机生成、只存在服务端数据库），不保存查询者 IP 或浏览器标识原文；超过 30 天的记录不再计入，并在之后任何一次检测时删除；浏览器里保存一个随机生成的匿名标识。你在页面上填写的 API key 只保存在浏览器里，只发送给对应的服务。
 
 ## 参与开发
 
@@ -192,6 +202,16 @@ npm test
 [![在爱发电赞助](https://img.shields.io/badge/%E5%9C%A8%E7%88%B1%E5%8F%91%E7%94%B5%E8%B5%9E%E5%8A%A9-ifdian.net%2Fa%2FHarukili-946ce6?style=for-the-badge)](https://ifdian.net/a/Harukili)
 
 点一个 Star、反馈问题或提交 PR，同样是很大的支持。
+
+### 捐赠 API key
+
+页面上显示“未配置”的来源缺少 key。如果你有多余的额度，可以捐赠给项目，让所有访客都能用上这些数据：
+
+1. 确认该服务的条款允许共享 key。如果不允许，可以通过爱发电赞助，由作者自己购买额度。
+2. 为 Egress 单独创建一个 key，并设好额度上限。捐赠的 key 会被所有访客的查询消耗。
+3. 在 X 上私信 [@BlackSlience](https://x.com/BlackSlience)。**不要发在 Issue、PR 或任何公开的地方**；已经公开的 key 请立即作废。
+
+key 只保存在后端运行环境，不会进入这个仓库，你可以随时作废它。同一个来源目前只使用一个 key。
 
 ## 许可证
 
