@@ -185,7 +185,7 @@ python -m playwright install chromium
 - **不要提交真实 IP**。代码、测试、文档和截图里统一使用文档保留地址：`192.0.2.0/24`、`198.51.100.0/24`、`203.0.113.0/24`、`2001:db8::/32`。
 - **密钥只放在后端运行环境**。`config.js` 只放公开值。
 - **公开讨论不写线上细节**。Issue、PR 和提交信息里不要写线上版本、部署状态或内部实现。
-- **安全问题不要发公开 issue**。请在 X 上私信 [@BlackSlience](https://x.com/BlackSlience)。
+- **安全问题不要发公开 issue**。请通过[私密漏洞报告](https://github.com/BlackSlience-Reaper/egress-observatory/security/advisories/new)提交。
 
 ## Labels
 

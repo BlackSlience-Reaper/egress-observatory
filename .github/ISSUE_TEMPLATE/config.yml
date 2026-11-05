@@ -9,3 +9,6 @@ contact_links:
   - name: 对分数有疑问
     url: https://github.com/BlackSlience-Reaper/egress-observatory/blob/master/SCORING.md
     about: 先看评分规则：每一项的权重、上限和依据都在这里。
+  - name: 报告安全问题
+    url: https://github.com/BlackSlience-Reaper/egress-observatory/security/advisories/new
+    about: 请私下提交，不要发公开 issue。
