@@ -55,11 +55,13 @@ Egress 联合 20 多个 IP 数据库、16 个 DNS 黑名单、17 个威胁、代
 
 网页中的明确 VPN、代理、Tor、机房、中继、爬虫和滥用标记进入现有加权投票，明确的 0–100 风险分进入风险评分。IPSuper 的逐库风险矩阵也会自动补充这些字段；未支持和获取失败的格子不投票。IPQS、Scamalytics、AbuseIPDB 的具名风险分用于评分，其他条形百分比保留原意。官网、Chrome、IPSuper 和 IPOK 的同库结果合并，只保留一份来源权重，返回字段时立即重新计算总分和用途评分。
 
-## Chrome 扩展（可选）
+## Chrome 扩展 v1.3.2（可选）
 
 不安装也能使用：网站默认在云端读取 IPSuper 的逐库类型、风险分和风险矩阵，供所有访客自动补全。
 
-[**下载 Chrome 扩展 v1.3.1（ZIP）**](https://blackslience-reaper.github.io/egress-observatory/downloads/egress-browser-helper-v1.3.1.zip) · [安装说明](browser-helper/README.md)
+Chrome 网上应用店与 Edge 加载项的商店入口将在上架后启用；当前使用离线安装。
+
+[**下载 Chrome 扩展 v1.3.2（ZIP）**](https://blackslience-reaper.github.io/egress-observatory/downloads/egress-browser-helper-v1.3.2.zip) · [安装说明](browser-helper/README.md) · [扩展隐私政策](https://blackslience-reaper.github.io/egress-observatory/privacy.html)
 
 扩展使用访客当前的浏览器会话增强本机结果，覆盖 18 个来源，补齐接口缺失的字段：
 
@@ -69,6 +71,8 @@ Egress 联合 20 多个 IP 数据库、16 个 DNS 黑名单、17 个威胁、代
 - 点“停止等待”、切换查询或关闭检测页会取消本轮并清理该页发起的临时标签，其他标签保持原状。
 
 安装包保存在仓库 `downloads/`，包含完整的 `browser-helper/` 文件夹；网页“多源 IP 类型”区也提供下载和安装说明。
+
+维护者在仓库根目录运行 `python browser-helper/pack.py`，即可从 manifest 版本生成离线包和 Chrome / Edge 商店上传包，并同步页面与文档版本。商店文案、权限披露和发布步骤见 [STORE.md](browser-helper/STORE.md)。
 
 ## 自动代码审查
 

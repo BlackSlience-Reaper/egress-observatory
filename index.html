@@ -9,8 +9,8 @@
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>IP 纯净度检测 · Egress</title>
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./styles.css?v=3.1">
-  <script type="module" src="./src/main.js?v=4.29"></script>
+  <link rel="stylesheet" href="./styles.css?v=3.4">
+  <script type="module" src="./src/main.js?v=4.33"></script>
 </head>
 <body>
   <a class="skip-link" href="#main">跳到检测结果</a>
@@ -81,12 +81,12 @@
     <section class="card" id="breakdown-card"><h2 class="card-title">评分明细 <small>基准 92，正面证据加分、风险扣分，每类有上限；悬停查看依据</small></h2><div id="breakdown" class="breakdown"></div></section>
 
     <section class="card" id="type-results">
-      <div class="type-heading"><h2 class="card-title">多源 IP 类型</h2><a id="browser-helper-download" class="small" href="./downloads/egress-browser-helper-v1.3.1.zip" download="egress-browser-helper-v1.3.1.zip">Chrome 插件 v1.3.1 ↓</a></div>
+      <div class="type-heading"><h2 class="card-title">多源 IP 类型</h2><a id="browser-helper-download" class="small" href="./downloads/egress-browser-helper-v1.3.2.zip" download="egress-browser-helper-v1.3.2.zip">Chrome 插件 v1.3.2 ↓</a></div>
       <p id="auto-page-status" class="muted small" role="status" aria-live="polite"></p>
       <p id="chrome-challenges" class="small"></p>
       <div id="types" class="table-wrap"></div>
       <details id="lookup-details" class="lookup-details"><summary>查询详情</summary><div class="table-wrap"><table class="lookup-table"><thead><tr><th>来源</th><th>通道</th><th>状态</th><th>结果 / 失败原因</th><th>耗时</th></tr></thead><tbody id="lookup-detail-rows"></tbody></table></div></details>
-      <details class="type-tools"><summary>安装与手动导入</summary>
+      <details class="type-tools" id="browser-helper-install"><summary>安装与手动导入</summary>
       <p class="muted small">服务器自动补充；插件使用当前 Chrome 会话读取 18 个来源。人机验证由你手动完成，通过后自动补充。</p>
       <ol><li>下载并解压插件。</li><li>打开 <code>chrome://extensions</code>，开启“开发者模式”。</li><li>加载解压后的 <code>browser-helper</code> 文件夹。更新时替换原文件夹并点“重新加载”。</li><li>刷新本页，点击“查询”。</li></ol>
       <p class="muted small">临时标签自动分组、读完关闭；等待验证时保留，停止等待或切换查询时清理。Cookie 留在浏览器内。<a href="https://github.com/BlackSlience-Reaper/egress-observatory/tree/main/browser-helper" target="_blank" rel="noopener noreferrer">源码与权限 ↗</a></p>
@@ -108,6 +108,7 @@
       <div class="crosscheck"><span class="muted">更多工具交叉验证</span><span id="crosslinks" class="crosslinks"></span></div>
       <p class="muted small">风险明细补充：<a href="https://ipok.io/" target="_blank" rel="noopener noreferrer">IPOK</a> · IP Geolocation by <a href="https://db-ip.com" target="_blank" rel="noopener noreferrer">DB-IP</a> (CC BY 4.0) · <a href="https://www.ip2location.io" target="_blank" rel="noopener noreferrer">IP2Location.io</a> · GeoLite2 by <a href="https://www.maxmind.com" target="_blank" rel="noopener noreferrer">MaxMind</a> via RIPEstat · 国旗图片 flagcdn.com</p>
       <p class="muted small">广告投放与其他合作：<a href="https://x.com/BlackSlience" target="_blank" rel="noopener noreferrer">X @BlackSlience</a></p>
+      <p class="muted small"><a href="./privacy.html">扩展隐私政策 / Extension privacy policy</a></p>
       <p class="muted small">分数是基于公开数据的可解释估计，不代表任何网站的真实风控结论。目标 IP 会发送给上表中的数据服务；页面不设账号、没有第三方统计。为估计共享人数，本站只以加盐哈希记录每次检测的查询方，超过 30 天即删除。</p>
     </footer>
   </main>

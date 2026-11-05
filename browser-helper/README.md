@@ -1,8 +1,10 @@
-# Egress Chrome 插件 v1.3.1
+# Egress Chrome 插件 v1.3.2
 
-[下载 ZIP](https://blackslience-reaper.github.io/egress-observatory/downloads/egress-browser-helper-v1.3.1.zip)
+Chrome 网上应用店与 Edge 加载项的商店入口将在上架后启用；当前使用离线安装。
 
-解压后，在 chrome://extensions 开启开发者模式，加载 browser-helper 文件夹。更新时替换原目录文件并点“重新加载”，再刷新 Egress 页面。点击“查询”或“重新检测”触发读取。
+[下载 ZIP](https://blackslience-reaper.github.io/egress-observatory/downloads/egress-browser-helper-v1.3.2.zip) · [隐私政策 / Privacy policy](https://blackslience-reaper.github.io/egress-observatory/privacy.html)
+
+解压后，在 `chrome://extensions`（Edge 为 `edge://extensions`）开启开发者模式，加载 `browser-helper` 文件夹。更新时替换原目录文件并点“重新加载”，再刷新 Egress 页面。点击“查询”或“重新检测”触发读取。
 
 覆盖 18 个来源：IPSuper、IPinfo、IP2Location、IPRegistry、ip-api.com、IPData、AbuseIPDB、DB-IP、Proxycheck、IPQualityScore、ipapi.is、IPLocate、GeoIPLookup、IPHub、IPQuery、Blackbox、Scamalytics、GreyNoise。公开接口由插件直接请求，其余读取当前 Chrome 会话的结果页。ipapi.is 与 IPLocate 在网站接口成功或明确限流时跳过，避免重复消耗额度。
 
@@ -12,6 +14,10 @@
 
 权限：tabs、tabGroups 创建和清理临时标签；scripting 读取这些标签内的公开结果。host_permissions 限于上述来源。ip-api.com 的免费接口使用 HTTP。登录 Cookie 留在浏览器内，插件不向 Egress 服务复制 Cookie、账号或 API key。
 
-结果按来源与 IP 缓存 10 分钟。page-extract.js、page-providers.js 与站点 src/ 对应文件同步，IP 校验复用 util.js。安装包包含完整 browser-helper/ 文件夹。
+成功结果按来源与 IP 在内存缓存，原始成功时间后 10 分钟内可复用，最多 128 项，Service Worker 停止后消失。page-extract.js、page-providers.js 与站点 src/ 对应文件同步，IP 校验复用 util.js。离线安装包包含 `browser-helper/` 下的运行文件、图标与本说明。
+
+在仓库根目录运行 `python browser-helper/pack.py`（macOS / Linux 可用 `python3`），从 manifest 读取版本，同步下载链接与标题，生成 `downloads/` 离线 ZIP 和 `dist/` Chrome / Edge 上传 ZIP。商店包的根目录直接包含 manifest，省略 README。维护者发布材料见仓库中的 [STORE.md](https://github.com/BlackSlience-Reaper/egress-observatory/blob/master/browser-helper/STORE.md)。
+
+v1.3.2 加入扩展图标和隐私政策链接，功能不变。
 
 v1.3.1 修复 IPData 的卡片布局，读取 ASN、公司、信任分与风险徽记；信任分保留原意。IPQS 从目标结果区读取风险分、VPN、代理与 Tor，缺失字段逐项说明。插件直接返回解析异常，页面仍在加载外部资源时也会尝试读取。查询时可复用已打开的相同 IP 结果页，用户原有标签始终保留。

@@ -5,8 +5,36 @@ import { DNSBLS, CIDR_LISTS } from './blocklists.js';
 import { CATEGORIES, TYPE_LABEL } from './score.js?v=4.8';
 import { captchaConfig } from './captcha.js';
 import { PAGE_PROVIDERS } from './page-providers.js?v=1';
+import { helperStore } from './helper-stores.js?v=1';
 
 const $ = id => document.getElementById(id);
+const MIN_HELPER_VERSION = '1.3.1';
+
+export function renderHelperDownload() {
+  const store = helperStore();
+  if(!store)return;
+  const download = $('browser-helper-download');
+  const links = document.createElement('span');
+  links.className='small';
+  const listing = document.createElement('a');
+  listing.href=store.url;listing.textContent=store.label+' ↗';
+  listing.target='_blank';listing.rel='noopener noreferrer';
+  const install = document.createElement('a');
+  install.href='#browser-helper-install';install.textContent='安装步骤';
+  install.addEventListener('click',()=>{$('browser-helper-install').open=true;});
+  download.before(links);
+  download.textContent=download.textContent.replace('Chrome 插件','离线安装');
+  links.append(listing,' · ',download,' · ',install);
+}
+
+function versionBefore(version, minimum) {
+  const current = version.split('.').map(Number), required = minimum.split('.').map(Number);
+  for(let i=0;i<Math.max(current.length,required.length);i++) {
+    const difference = (current[i] || 0) - (required[i] || 0);
+    if(difference)return difference < 0;
+  }
+  return false;
+}
 
 const ICONS = {
   good: '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7"/><path d="M4.8 8.2l2.1 2.1 4.3-4.6"/></svg>',
@@ -603,7 +631,7 @@ export function renderLookupStatus(run) {
   if(waiting)parts.push(`${waiting} 个待验证`);
   if(failed)parts.push(`${failed} 个失败`);
   if(chrome.error)parts.push(chrome.error);
-  if(chrome.version && /^1\.(?:[012]\.|3\.0$)/.test(chrome.version))parts.push('请更新至 v1.3.1');
+  if(chrome.version && versionBefore(chrome.version,MIN_HELPER_VERSION))parts.push(`请更新至 v${MIN_HELPER_VERSION}`);
   if(server.length)parts.push(`服务器补充 ${server.filter(row=>row.status==='ok').length}/${server.length}`);
   $('auto-page-status').textContent=parts.join(' · ');
   const details=[];

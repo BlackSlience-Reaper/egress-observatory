@@ -150,7 +150,7 @@ class Handler(SimpleHTTPRequestHandler):
         path = urlsplit(self.path).path
         if path == "/health":
             return self.reply(200, {"status": "ok", "providers": list(LOCKS)})
-        allowed = {"/","/index.html","/config.js","/styles.css","/favicon.svg"}
+        allowed = {"/","/index.html","/privacy.html","/config.js","/styles.css","/favicon.svg"}
         allowed.update("/downloads/" + p.name for p in (ROOT / "downloads").glob("egress-browser-helper-v*.zip"))
         if path not in allowed and path not in {"/src/"+p.name for p in (ROOT/"src").glob("*.js")}:
             return self.send_error(404)
