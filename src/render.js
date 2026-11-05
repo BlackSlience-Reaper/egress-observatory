@@ -2,7 +2,7 @@
 import { esc, countryName, maskIP, maskText, formatOffset, zoneOffset } from './util.js?v=4.1';
 import { SOURCES } from './sources.js?v=3.5';
 import { DNSBLS, CIDR_LISTS } from './blocklists.js';
-import { CATEGORIES, TYPE_LABEL } from './score.js?v=4.8';
+import { CATEGORIES, TYPE_LABEL } from './score.js?v=4.9';
 import { captchaConfig } from './captcha.js';
 import { mock } from './mock.js?v=1';
 import { PAGE_PROVIDERS } from './page-providers.js?v=1';
@@ -338,11 +338,21 @@ export function renderChecks(run, result) {
     { label: 'ASN 信誉', level: c.asnRep.level === 'none' ? (run.asnProfile && !run.asnProfile.routes ? 'none' : 'pending') : c.asnRep.level, value: c.asnRep.ratio === undefined ? '—' : c.asnRep.ratio >= 15 ? '较差' : c.asnRep.ratio >= 2 ? '一般' : c.asnRep.ratio <= 0.2 ? '优异' : c.asnRep.ratio < 0.5 ? '良好' : '正常', sub: c.asnRep.ratio === undefined ? '' : `滥用密度 ${c.asnRep.ratio} 倍均值`, pts: itemPts(result, 'asn-abuse') + itemPts(result, 'rpki'), title: c.asnRep.ratio === undefined ? '' : `整个 ASN 每万个地址有 ${c.asnRep.per10k} 个近期上榜，全网平均 ${c.asnRep.baseline}` },
     { label: '开放端口', level: loading(c.ports.level), value: c.ports.ports.length ? esc(c.ports.ports.slice(0, 4).join(', ')) + (c.ports.ports.length > 4 ? '…' : '') : c.ports.level === 'none' ? '—' : '未发现', sub: c.ports.tags.length ? esc(c.ports.tags.join(' ')) : '' },
     botTile(run, result),
-    { label: '共享人数估计', level: loading(c.sharers.level), value: c.sharers.count === null ? '—' : c.sharers.count === 1 ? '独享 IP' : c.sharers.count ? `约 ${c.sharers.count} 人` : '暂无记录',
-      sub: c.sharers.count ? `${c.sharers.count === 1 ? '仅见 1 人' : c.sharers.tier} · 近 ${c.sharers.windowDays} 天` : '', pts: itemPts(result, 'sharers'),
-      title: c.sharers.count === null ? '估计来源：Egress 自己的检测记录；本次没有取到（记录服务不可用，或服务端拿不到查询者地址）' : `估计来源：Egress 自己的检测记录。近 ${c.sharers.windowDays} 天里，从这个 IP 本身出口做过检测的不同浏览器约 ${c.sharers.count} 个（共 ${c.sharers.lookers} 个查询方、${c.sharers.lookups} 次查询）。` },
+    sharersTile(c.sharers, result, loading),
   ];
   $('checks').innerHTML = tiles.map(tile).join('');
+}
+
+/** 共享人数估计: the verdict, with each count in its own unit. Devices and browsers do not convert into people. */
+function sharersTile(s, result, loading) {
+  const proxycheck = s.address === null && s.subnet === null ? '本次没有取到 Proxycheck 的设备估计' : `Proxycheck 估计该地址约 ${s.address ?? '—'} 台设备、同网段约 ${s.subnet ?? '—'} 台（0 表示未观测到，不代表没人用）`;
+  const log = s.lookers === null ? '本次没有取到 Egress 自己的检测记录' : `Egress 记录近 ${s.windowDays} 天约 ${s.own} 个不同浏览器从这个 IP 出口做过检测（共 ${s.lookers} 个查询方、${s.lookups} 次查询）`;
+  const known = s.tier === '可能多人共用' ? '该地址被标记为匿名出口或移动网络，这类地址通常多人共用。' : '';
+  return {
+    label: '共享人数估计', level: loading(s.level), value: s.tier || '—',
+    sub: [s.address ? `该 IP 约 ${s.address} 台` : '', s.own >= 2 ? `本站 ${s.own} 个浏览器` : '', s.subnet ? `同段约 ${s.subnet} 台` : ''].filter(Boolean).join(' · '), pts: itemPts(result, 'sharers'),
+    title: `${proxycheck}。${log}。${known}以上都是估计，数值低也不能证明这个 IP 是独享的。`,
+  };
 }
 
 /** ASN 一致性: the IP's type against its ASN, and the ASN's self-declared type against independent evidence. */

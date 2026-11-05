@@ -145,6 +145,31 @@ function weightedRank(entries) {
     .sort((a, b) => b.w - a.w || String(a.value).localeCompare(String(b.value)));
 }
 
+// Proxycheck's subnet estimate, from 17 sampled addresses: home and hosting reach 33, mobile 212, VPN and Tor start at 670.
+const SUBNET_BUSY = 100; const SUBNET_CROWDED = 500;
+
+/**
+ * 共享人数估计: Proxycheck's device estimates for the address and its subnet, read with Egress's own log.
+ * None of them proves an IP is exclusive: the log only counts people who checked from this IP, and an address
+ * estimate of 0 means Proxycheck has not observed the address. So only an address Proxycheck has seen can read as 疑似独享.
+ */
+function sharingOf(seen, devices, knownShared) {
+  const own = seen?.sharers || 0;
+  const address = devices?.address ?? null; const subnet = devices?.subnet ?? null;
+  const count = Math.max(own, address || 0);
+  const tier = !seen && address === null && subnet === null ? null
+    : own > 10 || address >= 10 || subnet >= SUBNET_CROWDED ? '多人共享'
+    : knownShared ? '可能多人共用'
+    : count >= 4 ? '正常'
+    : subnet >= SUBNET_BUSY ? '同段较多'
+    : count >= 2 ? '少量共享'
+    : address === 0 ? '未见记录'
+    : address === null || subnet === null ? '数据不足' : '疑似独享';
+  const low = address >= 1 && subnet !== null && (tier === '疑似独享' || tier === '少量共享');
+  const level = { 多人共享: own > 20 ? 'bad' : 'warn', 少量共享: low ? 'good' : 'info', 疑似独享: 'good', 数据不足: 'none', 未见记录: 'none' }[tier] || (tier ? 'info' : 'none');
+  return { own, address, subnet, tier, level, low };
+}
+
 // ---------- main ----------
 
 export function score(evidence) {
@@ -239,8 +264,8 @@ export function score(evidence) {
   if (devices?.address >= 10) {
     add('anon', 'shared', '多设备共用出口', devices.address >= 50 ? 5 : 3, `Proxycheck 估计该地址近期约 ${devices.address} 台设备`);
   }
-  // 共享人数估计: distinct browsers that checked this IP from this IP itself in the last 30 days (Egress's own log).
-  // 1–3 earns a bonus below, 4–10 is normal, from 11 on each extra person costs 0.5, up to 10.
+  // Egress's own log: distinct browsers that checked this IP from this IP itself in the last 30 days.
+  // 4–10 is normal, from 11 on each extra person costs 0.5, up to 10. See sharingOf for how it reads with Proxycheck.
   const seen = evidence.seen?.callerKnown ? evidence.seen : null;
   const sharers = seen?.sharers || 0;
   const sharersText = `近 ${seen?.windowDays || 30} 天约 ${sharers} 个不同浏览器从这个 IP 出口做过检测`;
@@ -508,7 +533,8 @@ export function score(evidence) {
   const greynoise = sources.find(source => source.id === 'greynoise');
   if (greynoise?.riot) plus('riot', '已知良性服务', 1, `GreyNoise RIOT：${greynoise.name || '常见商业服务'}`);
   if (botShare !== null && botShare <= 0.2) plus('asn-human', '人类流量为主', 1, botText);
-  if (sharers >= 1 && sharers <= 3) plus('sharers', sharers === 1 ? '独享 IP' : '共享人数少', 2, sharersText);
+  const sharing = sharingOf(seen, devices, anonAny >= 0.5 || tor.E >= 0.5 || anonFlags.relay.E >= 0.5 || ipType === 'mobile');
+  if (sharing.low) plus('sharers', sharing.tier === '疑似独享' ? '疑似独享' : '共享人数少', 2, `Proxycheck 估计该地址约 ${sharing.address} 台设备、同网段约 ${sharing.subnet} 台；${seen ? sharersText : '本次没有取到本站检测记录'}`);
   if (live.turnstile === 'good') plus('turnstile', 'Turnstile 直接放行', 1, 'Cloudflare 没有弹出任何验证', true);
   if (recaptcha?.status === 'ok' && recaptcha.score >= 0.9) plus('recaptcha', 'reCAPTCHA 高分', 2, `Google 给出 ${recaptcha.score.toFixed(1)}`, true);
   const ipBonus = Math.min(BONUS_CAP, bonusItems.filter(item => !item.live).reduce((sum, item) => sum + item.pts, 0));
@@ -536,7 +562,7 @@ export function score(evidence) {
     asnRep: { ...(rep || {}), level: !rep ? 'none' : rep.ratio >= 15 ? 'bad' : rep.ratio >= 2 ? 'warn' : 'good' },
     bots: { bot: botShare === null ? null : r3(botShare), human: humanShare === null ? null : r3(humanShare), window: asnInfo.radar?.window || null, level: botShare === null ? 'none' : botShare >= 0.6 ? 'bad' : botShare >= 0.4 ? 'warn' : 'good' },
     asn: { consistency: asnConsistency, level: !asnConsistency ? 'none' : !asnConsistency.ok ? 'bad' : asnConsistency.warn ? 'warn' : 'good' },
-    sharers: { count: seen ? sharers : null, tier: !seen || !sharers ? null : sharers === 1 ? '独享 IP' : sharers <= 3 ? '少量共享' : sharers <= 10 ? '正常' : '多人共享', lookers: seen?.lookers ?? null, lookups: seen?.lookups ?? null, windowDays: seen?.windowDays || 30, level: !seen || !sharers ? 'none' : sharers <= 3 ? 'good' : sharers <= 10 ? 'info' : sharers <= 20 ? 'warn' : 'bad' },
+    sharers: { ...sharing, lookers: seen?.lookers ?? null, lookups: seen?.lookups ?? null, windowDays: seen?.windowDays || 30 },
     ports: { ports: shodan?.ports || [], tags: shodan?.tags || [], level: !shodan ? 'none' : shodan.tags?.some(tag => ['proxy', 'vpn', 'tor', 'compromised', 'malware'].includes(tag)) ? 'warn' : shodan.ports?.length ? 'info' : 'good' },
   };
 

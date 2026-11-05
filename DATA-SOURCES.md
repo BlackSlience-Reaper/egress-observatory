@@ -32,6 +32,12 @@
 
 [官方 CHECK 文档](https://docs.abuseipdb.com/#check-endpoint)明确位置、使用类型、ISP 与域名来自 IPinfo。后端已有独立的密钥配置入口；未配置时显示“未配置密钥”，这些字段保持未知。AbuseIPDB 自身的举报分保留其独立来源。
 
+## 共享人数估计
+
+[Proxycheck](https://proxycheck.io/api/) 的 `device_estimate` 给出该地址和所在网段的设备估计，是本站判断共享的第三方数据。官方文档没有写明网段大小和统计时间窗口。地址估计为 0 表示没有观测到，不当作没人使用。本站自己的检测记录只计入在这个 IP 上做过检测的人，只能当作下限，不能单独说明 IP 是独享的。
+
+[ping0](https://ping0.cc/ip/faq) 的共享人数是过去 12 个月独立用户的估算，FAQ 没有披露具体数据来源，[API](https://ping0.cc/ip/api) 的返回字段里也没有这一项，所以本站只提供它的查询链接。
+
 ## 来源网页补全
 
 按 2026-11-05 的用户请求，对字段不足的来源增加单目标网页读取：IPHub、IPQualityScore、IPData、IPRegistry、DB-IP、Scamalytics、ipapi.is、IPQuery、Blackbox。固定目标地址、有限等待，成功和失败均逐源展示。遇到人机校验时停止读取并保留原因；网页未显示的字段保持未知，接口已提供的字段优先。
