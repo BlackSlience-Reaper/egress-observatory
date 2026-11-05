@@ -1,7 +1,7 @@
 import { lookupIPOK, lookupDBIPWeb, fillSource } from './supplements.js?v=3';
 import { readIPinfoPage, mergeIPinfoPage } from './ipinfo-page.js?v=3.4';
 import { setupImport, supplementTypes, readReport, readRiskReport, mergeTypeReports, mergeRiskReports } from './ipsuper.js?v=3.4';
-import { setupProviderImport, readProviderReport, mergeProviderPage, lookupChromePages } from './provider-pages.js?v=4.1';
+import { setupProviderImport, readProviderReport, mergeProviderPage, lookupChromePages } from './provider-pages.js?v=4.2';
 /** Orchestration: detect the egress, fan out every check, rescore as results arrive. */
 import { API_BASE } from '../config.js?v=cloud3';
 import { mock } from './mock.js?v=1';
@@ -14,14 +14,18 @@ import { fetchASN, inferASN, detectLease } from './asn.js?v=4.3';
 import { detectEgress, summarizeEgress, probeWebRTC, probeDNS, classifyDNS, probeTCP, probeEnvironment, probeIPv6, classifyIPv6, traceProbe } from './probes.js?v=2';
 import { runTurnstile, runRecaptcha } from './captcha.js?v=4.2';
 import { score } from './score.js?v=4.8';
-import * as view from './render.js?v=4.25';
+import * as view from './render.js?v=4.26';
 
 const $ = id => document.getElementById(id);
 // In mock mode only documentation addresses can be checked, so real ones never meet fixture answers.
 const checkable = ip => mock ? mock.accepts(ip) : isPublicIP(ip);
 // Local pages never write to the live sharer log; in mock mode a fixture answers instead.
 const countsChecks = Boolean(mock) || !['127.0.0.1', 'localhost', '[::1]'].includes(location.hostname);
-$('types').addEventListener('click',event=>{if(event.target.closest('[data-lookup-details]'))$('lookup-details').open=true;});
+$('types').addEventListener('click',event=>{
+  const retry=event.target.closest('[data-chrome-retry]');
+  if(retry)app.run?.chrome.retry?.(retry.dataset.chromeRetry);
+  else if(event.target.closest('[data-lookup-details]'))$('lookup-details').open=true;
+});
 const app = {
   masked: localStorage.getItem('egress-mask') === '1',
   egress: null, egressPromise: null, health: null, healthPromise: null, healthPending: false, healthAt: 0, run: null, frame: 0,
@@ -302,21 +306,27 @@ async function startRun(input, fetchPages = true) {
     const chromeRows = run.chrome.rows;
     let focusChrome = null;
     let cancelChrome = null;
+    // A failed source read again on request; its rows outrank the first query's late final report.
+    const retried = new Set();
+    const retryFocus = new Map();
+    const retryCancel = new Map();
+    const focusFor = id => retryFocus.get(id) || focusChrome;
     const sourceName = id => id === 'ipsuper' ? 'IPSuper' : SOURCES.find(source => source.id === id)?.name || id;
     const showChrome = () => {
       const rows = Object.entries(chromeRows);
-      const waiting = rows.filter(([, row]) => row.challenge).map(([id]) => id);
+      const waiting = rows.filter(([id, row]) => row.challenge && focusFor(id)).map(([id]) => id);
       showStatus();
-      challengeBox.innerHTML = waiting.length && focusChrome ? waiting.map(id => `<button type="button" class="small accent" data-provider="${id}">去验证 ${sourceName(id)}</button>`).join(' ') + ' <span class="muted">通过后自动补充</span> <button type="button" class="small" data-stop-waiting>停止等待</button>' : '';
+      challengeBox.innerHTML = waiting.length ? waiting.map(id => `<button type="button" class="small accent" data-provider="${id}">去验证 ${sourceName(id)}</button>`).join(' ') + ' <span class="muted">通过后自动补充</span> <button type="button" class="small" data-stop-waiting>停止等待</button>' : '';
     };
-    challengeBox.onclick = event => { const id = event.target.closest('button[data-provider]')?.dataset.provider; if (id && focusChrome) focusChrome(id); if (event.target.closest('[data-stop-waiting]')) cancelChrome?.(); };
-    const applyChrome = report => {
+    challengeBox.onclick = event => { const id = event.target.closest('button[data-provider]')?.dataset.provider; if (id) focusFor(id)?.(id); if (event.target.closest('[data-stop-waiting]')) { cancelChrome?.(); for (const cancel of retryCancel.values()) cancel(); } };
+    const applyChrome = (report, retry = false) => {
       if (!alive() || !report) return;
       const pages = readProviderReport(report, parsed.ip);
       if (Number.isInteger(report.total)) run.chrome.total = report.total;
       if (report.version) run.chrome.version = report.version;
       if (report.thirdParty) chromeRows.ipsuper = {status:report.thirdParty.status,error:String(report.thirdParty.error || '').slice(0,200),challenge:report.thirdParty.status === 'challenge',ms:report.thirdParty.ms};
       for (const [id, page] of Object.entries(pages)) {
+        if (!retry && retried.has(id)) continue;
         chromeRows[id] = page;
         if (page.status !== 'skip' && (page.status === 'ok' || run.providerPages[id]?.status !== 'ok')) run.providerPages[id] = page;
       }
@@ -326,6 +336,21 @@ async function startRun(input, fetchPages = true) {
         run.ipsuperReturned=SOURCES.filter(source=>webTypes(parsed.ip,source.id)).map(source=>source.id);
       }
       refreshTypes(); scheduleRender(); showChrome();
+    };
+    run.chrome.retry = id => {
+      if (!alive() || chromeRows[id]?.status !== 'error' || chromeRows[id].challenge || !view.chromeCanRetry(run.chrome.version)) return;
+      retried.add(id);
+      chromeRows[id] = {status:'pending',via:'Chrome'};
+      scheduleRender(); showChrome();
+      lookupChromePages(parsed.ip, signal, {
+        only: [id],
+        onStart: (focus,info) => { retryFocus.set(id,focus); retryCancel.set(id,info.cancel); },
+        onPartial: report => applyChrome(report, true),
+      }).then(report => {
+        if (report) applyChrome(report, true);
+        else if (alive() && chromeRows[id].status === 'pending') chromeRows[id] = {status:'error',error:'插件未响应，请刷新页面后重试',via:'Chrome'};
+      }).catch(error => { if (alive()) chromeRows[id] = {status:'error',error:error.message,via:'Chrome'}; })
+        .finally(() => { retryFocus.delete(id); retryCancel.delete(id); if (alive()) { refreshTypes(); scheduleRender(); showChrome(); } });
     };
     Promise.resolve().then(async()=>{
       const skip=[];
@@ -339,7 +364,7 @@ async function startRun(input, fetchPages = true) {
         onPartial: applyChrome,
       });
     }).then(report => { if (!alive()) return;if(report)applyChrome(report);focusChrome=null;run.chrome.active=false;showChrome(); })
-      .catch(error=>{if(alive()){focusChrome=null;run.chrome.active=false;run.chrome.error=error.message;for(const row of Object.values(chromeRows))if(row.challenge){row.challenge=false;row.status='error';row.error=error.message;}challengeBox.innerHTML='';showStatus();scheduleRender();}});
+      .catch(error=>{if(alive()){focusChrome=null;run.chrome.active=false;run.chrome.error=error.message;for(const [id,row] of Object.entries(chromeRows))if(row.challenge && !retried.has(id)){row.challenge=false;row.status='error';row.error=error.message;}showChrome();scheduleRender();}});
     for (const provider of ['ipinfo','ipsuper','sources']) {
       const query = () => lookupPage(provider, parsed.ip, pageSignal, message => {
         if (!alive()) return;

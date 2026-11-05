@@ -1,8 +1,8 @@
-# Egress Chrome 插件 v1.3.2
+# Egress Chrome 插件 v1.3.3
 
 Chrome 网上应用店与 Edge 加载项的商店入口将在上架后启用；当前使用离线安装。
 
-[下载 ZIP](https://blackslience-reaper.github.io/egress-observatory/downloads/egress-browser-helper-v1.3.2.zip) · [隐私政策 / Privacy policy](https://blackslience-reaper.github.io/egress-observatory/privacy.html)
+[下载 ZIP](https://blackslience-reaper.github.io/egress-observatory/downloads/egress-browser-helper-v1.3.3.zip) · [隐私政策 / Privacy policy](https://blackslience-reaper.github.io/egress-observatory/privacy.html)
 
 解压后，在 `chrome://extensions`（Edge 为 `edge://extensions`）开启开发者模式，加载 `browser-helper` 文件夹。更新时替换原目录文件并点“重新加载”，再刷新 Egress 页面。点击“查询”或“重新检测”触发读取。
 
@@ -17,6 +17,8 @@ Chrome 网上应用店与 Edge 加载项的商店入口将在上架后启用；�
 成功结果按来源与 IP 在内存缓存，原始成功时间后 10 分钟内可复用，最多 128 项，Service Worker 停止后消失。page-extract.js、page-providers.js 与站点 src/ 对应文件同步，IP 校验复用 util.js。离线安装包包含 `browser-helper/` 下的运行文件、图标与本说明。
 
 在仓库根目录运行 `python browser-helper/pack.py`（macOS / Linux 可用 `python3`），从 manifest 读取版本，同步下载链接与标题，生成 `downloads/` 离线 ZIP 和 `dist/` Chrome / Edge 上传 ZIP。商店包的根目录直接包含 manifest，省略 README。维护者发布材料见仓库中的 [STORE.md](https://github.com/BlackSlience-Reaper/egress-observatory/blob/master/browser-helper/STORE.md)。
+
+v1.3.3 修复手动验证通过后来源页仍报“拒绝访问”：Cloudflare 放行后短暂显示的过渡页带 403 状态，插件现在继续等待结果页。插件行里失败的格子可以点击，单独重新读取该来源，不打断正在进行的查询。
 
 v1.3.2 加入扩展图标和隐私政策链接，功能不变。
 

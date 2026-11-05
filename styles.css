@@ -486,6 +486,7 @@ body:not(.has-result) #checks, body:not(.has-result) #uses { opacity: .35; }
 .lookup-cell:hover { text-decoration:underline; }
 .lookup-ok { color:var(--good); }
 .lookup-wait { color:var(--warn); }
+.lookup-retry { text-decoration:underline dotted; text-underline-offset:3px; }
 .chrome-type-row td { padding-top:8px; padding-bottom:8px; }
 .lookup-details, .type-tools { margin-top:12px; color:var(--muted); font-size:12px; }
 .lookup-details summary, .type-tools summary { cursor:pointer; }

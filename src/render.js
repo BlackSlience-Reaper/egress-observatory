@@ -9,7 +9,7 @@ import { PAGE_PROVIDERS } from './page-providers.js?v=1';
 import { helperStore } from './helper-stores.js?v=1';
 
 const $ = id => document.getElementById(id);
-const MIN_HELPER_VERSION = '1.3.1';
+const MIN_HELPER_VERSION = '1.3.3';
 
 export function renderHelperDownload() {
   const store = helperStore();
@@ -579,10 +579,15 @@ export function renderTypes(run) {
     <tbody>
       <tr><th scope="row">使用类型</th>${ids.map(id => `<td>${markClash(typeCell(run.sources[id], 'usageType', id), run.sources[id], 'usageType', run)}</td>`).join('')}</tr>
       <tr><th scope="row">公司类型</th>${ids.map(id => `<td>${markClash(typeCell(run.sources[id], 'companyType', id), run.sources[id], 'companyType', run)}</td>`).join('')}</tr>
-      ${run.chrome?.version ? `<tr class="chrome-type-row"><th scope="row">插件</th>${ids.map(id=>{const row=run.chrome.rows[id];return `<td><button type="button" class="lookup-cell ${row?.status === 'ok' ? 'lookup-ok' : row?.challenge ? 'lookup-wait' : ''}" data-lookup-details data-tip="${esc(row ? lookupDetail(row) : run.chrome.active ? '排队中' : '此版本插件未返回该来源')}" aria-label="${esc((PAGE_PROVIDERS[id]?.name || id)+' 插件查询详情')}">${row ? lookupLabel(row) : run.chrome.active ? '排队' : '未返回'}</button></td>`;}).join('')}</tr>` : ''}
+      ${run.chrome?.version ? `<tr class="chrome-type-row"><th scope="row">插件</th>${ids.map(id=>{const row=run.chrome.rows[id];const failed=row?.status === 'error' && !row.challenge && run.chrome.retry;const retry=failed && chromeCanRetry(run.chrome.version);const tip=row ? lookupDetail(row)+(retry ? ' · 点击重新读取' : failed ? ` · 更新插件至 v${MIN_HELPER_VERSION} 后可点击重试` : '') : run.chrome.active ? '排队中' : '此版本插件未返回该来源';return `<td><button type="button" class="lookup-cell ${row?.status === 'ok' ? 'lookup-ok' : row?.challenge ? 'lookup-wait' : retry ? 'lookup-retry' : ''}" ${retry ? `data-chrome-retry="${esc(id)}"` : 'data-lookup-details'} data-tip="${esc(tip)}" aria-label="${esc((PAGE_PROVIDERS[id]?.name || id)+(retry ? ' 插件重新读取' : ' 插件查询详情'))}">${row ? lookupLabel(row) : run.chrome.active ? '排队' : '未返回'}</button></td>`;}).join('')}</tr>` : ''}
     </tbody></table>
     <p class="muted small type-summary">使用：${esc(tally('usageType'))} · 公司：${esc(tally('companyType'))}${filled.length ? ` · 补充 ${filled.length} 项` : ''}</p>`;
   renderLookupStatus(run);
+}
+
+/** Helper 1.3.3+ can read a single source again beside a running query. */
+export function chromeCanRetry(version) {
+  return Boolean(version) && !versionBefore(version, MIN_HELPER_VERSION);
 }
 
 function lookupLabel(row) {

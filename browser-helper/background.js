@@ -86,7 +86,8 @@ async function read(provider, ip, job, release) {
         }
       } catch (error) {
         reason = String(error.message || '网页字段暂不可读取').replace(/^Error:\s*/,'').slice(0,180);
-        if (/其他站点|closed|No tab|HTTP 4|来源拒绝/.test(reason)) break;
+        // After a passed check Cloudflare briefly shows "Verification successful" with the challenge's 403 status.
+        if (/其他站点|closed|No tab/.test(reason) || /HTTP 4|来源拒绝/.test(reason) && !job.challenges.has(provider)) break;
         if (/人机校验/.test(reason) && !job.challenges.has(provider)) {
           // Never click or solve it: keep the tab, tell the Egress page, and let the visitor finish it.
           job.challenges.set(provider, tab.id);
@@ -127,7 +128,7 @@ async function lookup(ip, job) {
     await chrome.tabGroups.update(job.group,{title:'Egress 自动查询',color:'blue'});
   } catch { job.group = null; }
   try {
-    await Promise.all(Object.keys(SITES).map(async provider => {
+    await Promise.all((job.only || Object.keys(SITES)).map(async provider => {
       const key = provider + ':' + ip;
       const previous = cache.get(key);
       let row;
@@ -171,9 +172,11 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
   }
   const ip = parseIP(message.ip)?.ip;
   if (message.kind !== 'lookup' || !ip || !isPublicIP(ip)) { respond({error:'需要有效的公网 IP'}); return; }
-  // A fresh query from this Egress tab cancels only its own previous work.
-  for (const [id, job] of jobs) if (id.startsWith(sender.tab.id + ':')) cancel(job);
-  const job = {ip,requestId:message.requestId,client:sender.tab.id,window:sender.tab.windowId,tabs:new Set(),group:null,cancelled:false,challenges:new Map(),focused:new Set(),controller:new AbortController(),skip:Array.isArray(message.skip) ? message.skip.filter(id=>['ipapiis','iplocate'].includes(id)) : []};
+  // A retry reads only the named sources beside the running query; a fresh query from this Egress tab cancels only its own previous work.
+  const only = Array.isArray(message.only) ? [...new Set(message.only.filter(id=>Object.hasOwn(SITES,id)))] : null;
+  if (only && !only.length) { respond({error:'没有可重试的来源'}); return; }
+  if (!only) for (const [id, job] of jobs) if (id.startsWith(sender.tab.id + ':')) cancel(job);
+  const job = {ip,only,requestId:message.requestId,client:sender.tab.id,window:sender.tab.windowId,tabs:new Set(),group:null,cancelled:false,challenges:new Map(),focused:new Set(),controller:new AbortController(),skip:Array.isArray(message.skip) ? message.skip.filter(id=>['ipapiis','iplocate'].includes(id)) : []};
   jobs.set(key, job);
   // Finish this message immediately. Polling Chrome APIs keeps an active manual wait alive
   // without holding one onMessage event open beyond the service worker event deadline.
