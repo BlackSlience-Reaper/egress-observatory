@@ -7,13 +7,14 @@ import { API_BASE } from '../config.js?v=cloud3';
 import { mock } from './mock.js?v=1';
 import { lookupPage } from './page-lookups.js?v=7';
 import { getJSON, parseIP, isPublicIP, sameIP, maskIP, maskText } from './util.js?v=4.1';
-import { SOURCES, runSource } from './sources.js?v=3.3';
+import { SOURCES, runSource } from './sources.js?v=3.4';
+import { setupOwnKeys } from './own-keys.js?v=1';
 import { DNSBLS, checkDNSBL, CIDR_LISTS, checkCIDRList, asnAbuseDensity } from './blocklists.js';
 import { fetchASN, inferASN, detectLease } from './asn.js?v=4.3';
 import { detectEgress, summarizeEgress, probeWebRTC, probeDNS, classifyDNS, probeTCP, probeEnvironment, probeIPv6, classifyIPv6, traceProbe } from './probes.js?v=2';
 import { runTurnstile, runRecaptcha } from './captcha.js?v=4.2';
 import { score } from './score.js?v=4.8';
-import * as view from './render.js?v=4.24';
+import * as view from './render.js?v=4.25';
 
 const $ = id => document.getElementById(id);
 // In mock mode only documentation addresses can be checked, so real ones never meet fixture answers.
@@ -492,6 +493,7 @@ $('mask-toggle').addEventListener('click', () => { app.masked = !app.masked; loc
 $('share').addEventListener('click', share);
 $('export').addEventListener('click', exportReport);
 $('rerun').addEventListener('click', () => app.run && startRun(app.run.ip));
+setupOwnKeys(() => { if (app.run) startRun(app.run.ip); });
 document.addEventListener('click', event => {
   const check = event.target.closest('[data-check]');
   if (check) { startRun(check.dataset.check); window.scrollTo({ top: 0, behavior: 'smooth' }); }

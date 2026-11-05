@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        **请不要公开真实出口 IP。** Issue 所有人都能看到。截图和导出报告前先点页面上的“隐藏 IP”；需要举例时使用文档保留地址，例如 `203.0.113.10` 或 `2001:db8::1`。
+        **请不要公开真实出口 IP 和 API key。** Issue 所有人都能看到。截图和导出报告前先点页面上的“隐藏 IP”；需要举例时使用文档保留地址，例如 `203.0.113.10` 或 `2001:db8::1`。
   - type: textarea
     id: what
     attributes:

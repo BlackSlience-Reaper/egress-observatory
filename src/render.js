@@ -1,6 +1,6 @@
 /** DOM rendering. All external text goes through esc(). */
 import { esc, countryName, maskIP, maskText, formatOffset, zoneOffset } from './util.js?v=4.1';
-import { SOURCES } from './sources.js?v=3.3';
+import { SOURCES } from './sources.js?v=3.4';
 import { DNSBLS, CIDR_LISTS } from './blocklists.js';
 import { CATEGORIES, TYPE_LABEL } from './score.js?v=4.8';
 import { captchaConfig } from './captcha.js';
