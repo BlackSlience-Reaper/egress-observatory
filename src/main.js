@@ -4,17 +4,22 @@ import { setupImport, supplementTypes, readReport, readRiskReport, mergeTypeRepo
 import { setupProviderImport, readProviderReport, mergeProviderPage, lookupChromePages } from './provider-pages.js?v=4.1';
 /** Orchestration: detect the egress, fan out every check, rescore as results arrive. */
 import { API_BASE } from '../config.js?v=cloud2';
+import { mock } from './mock.js?v=1';
 import { lookupPage } from './page-lookups.js?v=6';
 import { getJSON, parseIP, isPublicIP, sameIP, maskIP, maskText } from './util.js?v=4.1';
 import { SOURCES, runSource } from './sources.js?v=3.3';
 import { DNSBLS, checkDNSBL, CIDR_LISTS, checkCIDRList, asnAbuseDensity } from './blocklists.js';
 import { fetchASN, inferASN, detectLease } from './asn.js?v=4.3';
-import { detectEgress, summarizeEgress, probeWebRTC, probeDNS, classifyDNS, probeTCP, probeEnvironment, probeIPv6, classifyIPv6, traceProbe } from './probes.js';
+import { detectEgress, summarizeEgress, probeWebRTC, probeDNS, classifyDNS, probeTCP, probeEnvironment, probeIPv6, classifyIPv6, traceProbe } from './probes.js?v=2';
 import { runTurnstile, runRecaptcha } from './captcha.js?v=4.2';
 import { score } from './score.js?v=4.8';
-import * as view from './render.js?v=4.22';
+import * as view from './render.js?v=4.24';
 
 const $ = id => document.getElementById(id);
+// In mock mode only documentation addresses can be checked, so real ones never meet fixture answers.
+const checkable = ip => mock ? mock.accepts(ip) : isPublicIP(ip);
+// Local pages never write to the live sharer log; in mock mode a fixture answers instead.
+const countsChecks = Boolean(mock) || !['127.0.0.1', 'localhost', '[::1]'].includes(location.hostname);
 $('types').addEventListener('click',event=>{if(event.target.closest('[data-lookup-details]'))$('lookup-details').open=true;});
 const app = {
   masked: localStorage.getItem('egress-mask') === '1',
@@ -176,9 +181,9 @@ function clientId() {
 }
 
 // The last six addresses checked in this browser, newest first. Kept only in localStorage.
-const HISTORY = 'egress-history';
+const HISTORY = mock ? 'egress-history-mock' : 'egress-history';
 function readHistory() {
-  try { const list = JSON.parse(localStorage.getItem(HISTORY)); return Array.isArray(list) ? list.map(ip => parseIP(ip)?.ip).filter(ip => ip && isPublicIP(ip)).slice(0, 6) : []; }
+  try { const list = JSON.parse(localStorage.getItem(HISTORY)); return Array.isArray(list) ? list.map(ip => parseIP(ip)?.ip).filter(ip => ip && checkable(ip)).slice(0, 6) : []; }
   catch { return []; }
 }
 function rememberIP(ip) {
@@ -189,7 +194,7 @@ function rememberIP(ip) {
 
 async function startRun(input, fetchPages = true) {
   const parsed = parseIP(input);
-  if (!parsed || !isPublicIP(parsed.ip)) { $('status').textContent = '请输入有效的公网 IPv4 或 IPv6 地址。'; return; }
+  if (!parsed || !checkable(parsed.ip)) { $('status').textContent = mock ? '模拟模式只接受文档保留地址，例如 203.0.113.10。' : '请输入有效的公网 IPv4 或 IPv6 地址。'; return; }
   rememberIP(parsed.ip);
   const healthReady = refreshHealth(true);
   app.run?.controller.abort();
@@ -327,7 +332,7 @@ async function startRun(input, fetchPages = true) {
         const record = await ctx.sourceReady.get(id);
         if (record?.status === 'ok' || /429|额度|限流/.test(record?.error || '')) skip.push(id);
       }
-      return lookupChromePages(parsed.ip, signal, {
+      return mock ? null : lookupChromePages(parsed.ip, signal, {
         skip,
         onStart: (focus,info) => { if (!alive()) return;focusChrome=focus;cancelChrome=info.cancel;run.chrome.active=true;run.chrome.version=info.version;showStatus(); },
         onPartial: applyChrome,
@@ -417,7 +422,7 @@ async function startRun(input, fetchPages = true) {
   });
 
   // Count this check: how many people have gone out through this IP (see /v1/seen in the API worker).
-  healthReady.then(health => health?.seen ? getJSON(`${API_BASE}/v1/seen?ip=${encodeURIComponent(parsed.ip)}&client=${clientId()}`, { signal, timeout: 12000 }) : null)
+  healthReady.then(health => health?.seen && countsChecks ? getJSON(`${API_BASE}/v1/seen?ip=${encodeURIComponent(parsed.ip)}&client=${clientId()}`, { signal, timeout: 12000 }) : null)
     .then(result => { if (alive() && result?.ok && result.data?.status === 'success' && sameIP(result.data.ip, parsed.ip)) { run.seen = result.data; scheduleRender(); } })
     .catch(() => {});
 
@@ -426,7 +431,7 @@ async function startRun(input, fetchPages = true) {
 
 async function runProbes(run, signal, alive) {
   const update = (key, value) => { if (alive()) { run.probes[key] = value; scheduleRender(); } };
-  update('env', probeEnvironment());
+  update('env', mock ? mock.env : probeEnvironment());
   probeDNS(signal).then(value => update('dns', value));
   runCaptcha(run, 'turnstile', alive);
   runCaptcha(run, 'recaptcha', alive);
@@ -435,7 +440,7 @@ async function runProbes(run, signal, alive) {
   if (!alive()) return;
   const egressIPs = egress?.ips?.length ? egress.ips : [run.ip];
   update('trace', traceProbe(egress?.trace));
-  probeWebRTC(egressIPs, signal).then(value => update('webrtc', value));
+  (mock ? Promise.resolve(mock.webrtc) : probeWebRTC(egressIPs, signal)).then(value => update('webrtc', value));
   probeTCP(egressIPs, signal).then(value => update('tcp', value));
   probeIPv6(run.v === 4 ? egress?.v6 : egress?.v4, run.ip, signal).then(value => update('ipv6', value));
 }
@@ -444,7 +449,7 @@ async function runCaptcha(run, kind, alive = () => app.run === run, refreshBacke
   run.probes[kind] = null; scheduleRender();
   const health = await (refreshBackend ? refreshHealth(true) : run.healthReady);
   if (!alive()) return;
-  const value = kind === 'turnstile' ? await runTurnstile($('turnstile-slot'), health) : await runRecaptcha(health);
+  const value = mock ? mock.captcha : kind === 'turnstile' ? await runTurnstile($('turnstile-slot'), health) : await runRecaptcha(health);
   if (alive()) { run.probes[kind] = value; scheduleRender(); }
 }
 
@@ -515,7 +520,7 @@ function refreshEgress({ autoStart }) {
       if (first && results.find(item => item.id === 'ipify4')?.status !== 'pending') { started = true; startRun(first); }
     }
     if (app.run) scheduleRender(); else view.renderEgress(app.egress, null, app);
-  }).then(summary => {
+  }, checkable).then(summary => {
     app.egress = summary;
     button.disabled = false;
     if (autoStart && !started) {

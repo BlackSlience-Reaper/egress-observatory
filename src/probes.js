@@ -18,12 +18,12 @@ export const EGRESS_ENDPOINTS = [
   { id: 'ipip', name: 'IPIP.net（国内站点）', url: 'https://myip.ipip.net/json', pick: data => data?.data?.ip, domestic: true },
 ];
 
-export async function detectEgress(signal, onUpdate) {
+export async function detectEgress(signal, onUpdate, accept = isPublicIP) {
   const results = EGRESS_ENDPOINTS.map(endpoint => ({ id: endpoint.id, name: endpoint.name, domestic: Boolean(endpoint.domestic), status: 'pending', ip: null }));
   await Promise.all(EGRESS_ENDPOINTS.map(async (endpoint, index) => {
     const result = await getJSON(endpoint.url, { signal, timeout: 8000, as: endpoint.as || 'json' });
     const parsed = result.ok ? parseIP(endpoint.pick(result.data)) : null;
-    results[index] = { ...results[index], status: parsed && isPublicIP(parsed.ip) ? 'ok' : 'error', ip: parsed?.ip || null, v: parsed?.v || null, ms: result.ms, raw: endpoint.as === 'text' && endpoint.id !== 'ipsb' ? traceParse(result.data) : null };
+    results[index] = { ...results[index], status: parsed && accept(parsed.ip) ? 'ok' : 'error', ip: parsed?.ip || null, v: parsed?.v || null, ms: result.ms, raw: endpoint.as === 'text' && endpoint.id !== 'ipsb' ? traceParse(result.data) : null };
     onUpdate?.(results);
   }));
   return summarizeEgress(results);
