@@ -57,15 +57,16 @@ export function mergeProviderPage(record, page, name) {
  * Ask the installed helper extension to read the source pages in this Chrome session.
  * onStart(focus) fires once it answers; focus(provider) brings a page waiting on a human check to the front.
  * onPartial(report) receives each source as soon as it is read; the promise resolves with the full report.
+ * only (helper 1.3.2+) reads just those sources beside a running query.
  */
-export function lookupChromePages(ip,signal,{onStart=()=>{},onPartial=()=>{},skip=[]}={}) {
+export function lookupChromePages(ip,signal,{onStart=()=>{},onPartial=()=>{},skip=[],only}={}) {
   return new Promise((resolve,reject)=>{
     signal.throwIfAborted();
     const requestId = crypto.randomUUID();
     let started = false;
     let discover,timeout;
     const waiting = new Set();
-    const send = (kind,extra={}) => window.postMessage({channel:'egress-browser-client',kind,requestId,ip,skip,...extra},location.origin);
+    const send = (kind,extra={}) => window.postMessage({channel:'egress-browser-client',kind,requestId,ip,skip,...(only ? {only} : {}),...extra},location.origin);
     const resetTimeout = () => {
       clearTimeout(timeout);
       if (!waiting.size) timeout=setTimeout(()=>{send('cancel');finish(null,Error('插件 90 秒未返回进度，已取消剩余查询'));},90000);
