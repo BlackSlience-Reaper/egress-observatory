@@ -163,10 +163,10 @@ function sharingOf(seen, devices, knownShared) {
     : count >= 4 ? '正常'
     : subnet >= SUBNET_BUSY ? '同段较多'
     : count >= 2 ? '少量共享'
-    : address === null ? '数据不足'
-    : address === 0 ? '未见记录' : '疑似独享';
+    : address === 0 ? '未见记录'
+    : address === null || subnet === null ? '数据不足' : '疑似独享';
   const level = { 多人共享: own > 20 ? 'bad' : 'warn', 少量共享: 'good', 疑似独享: 'good', 数据不足: 'none', 未见记录: 'none' }[tier] || (tier ? 'info' : 'none');
-  return { count, own, address, subnet, tier, level, low: address >= 1 && (tier === '疑似独享' || tier === '少量共享') };
+  return { own, address, subnet, tier, level, low: address >= 1 && subnet !== null && (tier === '疑似独享' || tier === '少量共享') };
 }
 
 // ---------- main ----------

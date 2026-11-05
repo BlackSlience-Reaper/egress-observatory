@@ -343,14 +343,14 @@ export function renderChecks(run, result) {
   $('checks').innerHTML = tiles.map(tile).join('');
 }
 
-/** 共享人数估计: the count when there is one to show, otherwise the verdict. The tooltip keeps each estimate apart. */
+/** 共享人数估计: the verdict, with each count in its own unit. Devices and browsers do not convert into people. */
 function sharersTile(s, result, loading) {
   const proxycheck = s.address === null ? '本次没有取到 Proxycheck 的设备估计' : `Proxycheck 估计该地址约 ${s.address} 台设备、同网段约 ${s.subnet ?? '—'} 台（0 表示未观测到，不代表没人用）`;
   const log = s.lookers === null ? '本次没有取到 Egress 自己的检测记录' : `Egress 记录近 ${s.windowDays} 天约 ${s.own} 个不同浏览器从这个 IP 出口做过检测（共 ${s.lookers} 个查询方、${s.lookups} 次查询）`;
   const known = s.tier === '可能多人共用' ? '该地址被标记为匿名出口或移动网络，这类地址通常多人共用。' : '';
   return {
-    label: '共享人数估计', level: loading(s.level), value: !s.tier ? '—' : s.count >= 2 ? `约 ${s.count} 人` : s.tier,
-    sub: [s.count >= 2 ? s.tier : '', s.subnet ? `同段约 ${s.subnet} 台` : ''].filter(Boolean).join(' · '), pts: itemPts(result, 'sharers'),
+    label: '共享人数估计', level: loading(s.level), value: s.tier || '—',
+    sub: [s.address ? `该 IP 约 ${s.address} 台` : '', s.own >= 2 ? `本站 ${s.own} 个浏览器` : '', s.subnet ? `同段约 ${s.subnet} 台` : ''].filter(Boolean).join(' · '), pts: itemPts(result, 'sharers'),
     title: `${proxycheck}。${log}。${known}以上都是估计，数值低也不能证明这个 IP 是独享的。`,
   };
 }
