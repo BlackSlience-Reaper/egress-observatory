@@ -183,14 +183,14 @@ npm test
 
 线上后端不在这个仓库，参与开发不需要后端权限或 key。环境配置（含 Windows）、分支约定和各模块的改动要求见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
-## Star 趋势
+## Star History
 
-<a href="https://www.star-history.com/#BlackSlience-Reaper/egress-observatory&Date">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=blackslience-reaper/egress-observatory&type=Date&theme=dark">
-    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=blackslience-reaper/egress-observatory&type=Date">
-    <img alt="Egress 的 Star 增长趋势" src="https://api.star-history.com/svg?repos=blackslience-reaper/egress-observatory&type=Date" width="600">
-  </picture>
+<a href="https://www.star-history.com/?type=date&repos=BlackSlience-Reaper%2Fegress-observatory">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=BlackSlience-Reaper/egress-observatory&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=BlackSlience-Reaper/egress-observatory&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=BlackSlience-Reaper/egress-observatory&type=date&legend=top-left" />
+ </picture>
 </a>
 
 ## 联系与合作
