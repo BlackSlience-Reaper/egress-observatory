@@ -4,6 +4,7 @@
  * and it stays out of results, share links and exported reports.
  */
 import { esc, text, bool, num } from './util.js';
+import { mock } from './mock.js?v=1';
 
 const STORE = 'egress-own-keys';
 const KEY_FORMAT = /^[A-Za-z0-9_.:-]{8,200}$/;
@@ -142,6 +143,8 @@ const write = (name, keys) => {
 const allKeys = () => ({ ...read('localStorage'), ...read('sessionStorage') });
 
 export function keyFor(id) {
+  // Mock mode answers from fixtures: a real key has no fixture, and its URL would end up in the console warning.
+  if (mock) return null;
   const key = allKeys()[id];
   return OWN_KEY_PROVIDERS[id] && typeof key === 'string' && KEY_FORMAT.test(key) ? key : null;
 }
@@ -158,6 +161,7 @@ export async function ownKeyResponse(id, key, ip, get, matches) {
 }
 
 export function setupOwnKeys(onChange) {
+  if (mock) { document.getElementById('own-keys')?.remove(); return; }
   const form = document.getElementById('own-key-form');
   const fields = document.getElementById('own-key-fields');
   const remember = document.getElementById('own-key-remember');

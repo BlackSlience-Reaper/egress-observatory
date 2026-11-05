@@ -46,6 +46,13 @@ code { font-family: var(--mono); font-size: .92em; background: var(--panel-3); b
 .progress-track i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--accent-strong), var(--accent)); transition: width .35s ease, opacity .6s ease .4s; }
 .progress-track.done i { opacity: 0; }
 
+/* local ?mock=1 mode */
+.mock-banner { position: sticky; top: 0; z-index: 25; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 8px 24px; font-size: 13px; color: var(--text); background: #2a2210; border-bottom: 1px solid rgba(251, 191, 36, .35); }
+.mock-banner strong { color: var(--warn); }
+.mock-banner nav { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-left: auto; }
+.mock-banner a { color: var(--muted); }
+.mock-banner a[aria-current] { color: var(--warn); font-weight: 650; text-decoration: none; }
+
 /* top bar */
 .topbar { max-width: 1260px; margin: 0 auto; padding: 18px 24px 6px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .brand { display: flex; align-items: center; gap: 8px; text-decoration: none; font-weight: 650; letter-spacing: .01em; }

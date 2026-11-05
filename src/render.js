@@ -4,6 +4,7 @@ import { SOURCES } from './sources.js?v=3.4';
 import { DNSBLS, CIDR_LISTS } from './blocklists.js';
 import { CATEGORIES, TYPE_LABEL } from './score.js?v=4.8';
 import { captchaConfig } from './captcha.js';
+import { mock } from './mock.js?v=1';
 import { PAGE_PROVIDERS } from './page-providers.js?v=1';
 
 const $ = id => document.getElementById(id);
@@ -17,7 +18,7 @@ const ICONS = {
   pending: '<svg viewBox="0 0 16 16" aria-hidden="true" class="spin"><circle cx="8" cy="8" r="6" stroke-dasharray="26 12"/></svg>',
 };
 const icon = level => `<span class="ico ico-${level}">${ICONS[level] || ICONS.none}</span>`;
-const flag = code => code ? `<img class="flag" src="https://flagcdn.com/w40/${esc(code.toLowerCase())}.png" alt="" width="20" height="15" loading="lazy" referrerpolicy="no-referrer">` : '';
+const flag = code => code ? `<img class="flag" src="${mock ? mock.flag(code) : `https://flagcdn.com/w40/${esc(code.toLowerCase())}.png`}" alt="" width="20" height="15" loading="lazy" referrerpolicy="no-referrer">` : '';
 /** Shown wherever a value is still on its way from a third-party source, so it never reads as "no data". */
 const WAIT = '<span class="wait">等待第三方返回…</span>';
 const place = (code, city) => code ? `${flag(code)}<span>${city ? `${esc(city)}，` : ''}${esc(countryName(code))}</span>` : '<span class="muted">—</span>';
@@ -404,7 +405,7 @@ export function renderLive(run, result, egress, view) {
   const lv = key => result.live[key] || (p[key]?.status === 'error' ? 'none' : p[key] ? 'info' : 'pending');
   const tiles = [];
   const w = p.webrtc;
-  tiles.push({ label: 'WebRTC', level: lv('webrtc'), value: !w ? '检测中' : w.status !== 'ok' ? '失败' : !w.supported ? '已禁用' : w.leak ? `泄漏 ${w.leakIPs.map(ip => ipSpan(ip, view.masked)).join(' ')}` : w.srflx.length ? '无泄漏' : 'UDP 不通', sub: w?.status === 'ok' ? esc(w.leak ? '' : w.srflx.length ? 'UDP 出口一致' : '') : '', pts: itemPts(result, 'webrtc'), title: w?.summary });
+  tiles.push({ label: 'WebRTC', level: lv('webrtc'), value: !w ? '检测中' : w.status !== 'ok' ? '失败' : !w.supported ? (mock ? '模拟跳过' : '已禁用') : w.leak ? `泄漏 ${w.leakIPs.map(ip => ipSpan(ip, view.masked)).join(' ')}` : w.srflx.length ? '无泄漏' : 'UDP 不通', sub: w?.status === 'ok' ? esc(w.leak ? '' : w.srflx.length ? 'UDP 出口一致' : '') : '', pts: itemPts(result, 'webrtc'), title: w?.summary });
   const d = p.dnsClassified;
   const dnsTitle = { own: '同网解析', same: '同一国家', public: '公共 DNS 跨区', leak: 'DNS 泄漏', 'leak-cn': '真实位置泄漏' };
   tiles.push({ label: 'DNS 解析', level: lv('dns'), value: !d ? '检测中' : d.status !== 'ok' ? '失败' : `${esc(dnsTitle[d.verdict] || '—')}`, sub: d?.status === 'ok' ? groupResolvers(d.resolvers).slice(0, 2).map(group => `${flag(group.country)}${ipText(group.org || group.ip)}${group.count > 1 ? ` ×${group.count}` : ''}`).join(' ') : esc(d?.error || ''), pts: itemPts(result, 'dns'), title: [d?.summary, d?.ecsSummary].filter(Boolean).join('；') });
