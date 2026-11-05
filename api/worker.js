@@ -813,8 +813,10 @@ let seenSchema = null;
 function seenReady() {
   seenSchema ??= db.batch([
     db.prepare('CREATE TABLE IF NOT EXISTS egress_salt (id INTEGER PRIMARY KEY CHECK (id = 1), salt TEXT NOT NULL)'),
-    // v2 started empty on 2026-11-05: the first table held launch-day test checks, so it is dropped.
-    db.prepare('DROP TABLE IF EXISTS egress_seen'),
+    // v2 started empty on 2026-11-05: the first table held launch-day test checks. It is emptied rather than dropped,
+    // so a worker revision still running during a deploy can keep writing to it; nothing reads it any more.
+    db.prepare('CREATE TABLE IF NOT EXISTS egress_seen (target TEXT NOT NULL, querier TEXT NOT NULL, self INTEGER NOT NULL, count INTEGER NOT NULL, first INTEGER NOT NULL, last INTEGER NOT NULL, PRIMARY KEY (target, querier))'),
+    db.prepare('DELETE FROM egress_seen'),
     db.prepare('CREATE TABLE IF NOT EXISTS egress_seen_v2 (target TEXT NOT NULL, querier TEXT NOT NULL, self INTEGER NOT NULL, count INTEGER NOT NULL, first INTEGER NOT NULL, last INTEGER NOT NULL, PRIMARY KEY (target, querier))'),
     db.prepare('CREATE INDEX IF NOT EXISTS egress_seen_v2_last ON egress_seen_v2 (last)'),
     db.prepare('INSERT OR IGNORE INTO egress_salt (id, salt) VALUES (1, ?)').bind(crypto.randomUUID() + crypto.randomUUID()),
