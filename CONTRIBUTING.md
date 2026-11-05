@@ -169,16 +169,16 @@ python -m playwright install chromium
 2. 在仓库根目录重新打包：
 
    ```bash
-   zip -r downloads/egress-browser-helper-vX.Y.Z.zip browser-helper -x '*.DS_Store'
+   python3 browser-helper/pack.py
    ```
 
    Windows PowerShell：
 
    ```powershell
-   Compress-Archive -Path browser-helper -DestinationPath downloads\egress-browser-helper-vX.Y.Z.zip
+   python browser-helper/pack.py
    ```
 
-3. 更新版本引用：`README.md`、`browser-helper/README.md`、`index.html` 的下载链接，以及 `src/render.js` 里提示用户更新的版本判断。
+3. 脚本会同步 `README.md`、`browser-helper/README.md`、`index.html` 的版本引用。网站需要新版插件时，再手动提高 `src/render.js` 的 `MIN_HELPER_VERSION`，并更新它的 `?v=`。离线包在 `downloads/`，Chrome / Edge 上传包在忽略提交的 `dist/`；保留已有版本的离线 ZIP。商店文案与发布步骤见 [browser-helper/STORE.md](browser-helper/STORE.md)。
 
 ## 隐私与密钥
 

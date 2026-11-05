@@ -580,6 +580,7 @@ $('provider-apply').addEventListener('click', () => {
 });
 const requested = new URLSearchParams(location.search).get('ip');
 view.initTooltips();
+view.renderHelperDownload();
 view.applyMask(app.masked);
 view.renderHistory(readHistory());
 view.renderEgress(null, null, app);

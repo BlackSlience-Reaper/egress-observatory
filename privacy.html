@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Egress 自动网页查询扩展隐私政策：读取范围、数据用途、权限、缓存与临时标签清理。Includes the English privacy policy.">
+  <meta name="theme-color" content="#0b0c0f">
+  <meta name="color-scheme" content="dark">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <title>扩展隐私政策 · Egress</title>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./styles.css?v=3.4">
+</head>
+<body class="privacy-page">
+  <a class="skip-link" href="#main">跳到隐私政策</a>
+  <header class="topbar">
+    <a class="brand" href="./"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18M3.5 9h17M3.5 15h17"/></svg><span>Egress</span><em>扩展隐私政策</em></a>
+    <nav aria-label="政策导航"><a href="./">返回检测</a><a href="#english" lang="en">English</a></nav>
+  </header>
+  <main id="main" class="wrap">
+    <article class="card policy-copy" aria-labelledby="policy-title">
+      <h1 id="policy-title">Egress 扩展隐私政策</h1>
+      <p class="muted small">更新日期：2026-11-05 · <a href="#english" lang="en">English policy below</a></p>
+      <p>本政策适用于“Egress 自动网页查询”浏览器扩展。扩展的唯一用途是为 Egress 页面补充用户所查询公网 IP 的公开情报。Egress 页面发起查询时，扩展访问固定来源，读取目标结果并逐源回传。</p>
+
+      <h2>读取的站点与字段</h2>
+      <p>扩展的 <code>host_permissions</code> 仅包含下列 18 个来源。每个权限匹配对应协议、域名下的所有路径；实际查询入口由扩展内置的来源清单固定。</p>
+      <ul id="sites" class="policy-sites">
+        <li>汇总：<code>https://ipsuper.com/*</code>。</li>
+        <li>网络归属与位置网页：<code>https://ipinfo.io/*</code>、<code>https://www.ip2location.io/*</code>、<code>https://ipregistry.co/*</code>、<code>https://ipdata.co/*</code>、<code>https://db-ip.com/*</code>。</li>
+        <li>风险与威胁网页：<code>https://iphub.info/*</code>、<code>https://www.ipqualityscore.com/*</code>、<code>https://scamalytics.com/*</code>、<code>https://viz.greynoise.io/*</code>、<code>https://www.abuseipdb.com/*</code>、<code>https://proxycheck.io/*</code>。</li>
+        <li>公开 JSON 接口：<code>https://blackbox.ipinfo.app/*</code>、<code>https://api.ipquery.io/*</code>、<code>https://api.ipapi.is/*</code>、<code>https://www.iplocate.io/*</code>、<code>https://json.geoiplookup.io/*</code>、<code>http://ip-api.com/*</code>。</li>
+      </ul>
+      <p>读取的字段依来源可用性而定：目标 IP、国家、地区、城市、时区、经纬度、ASN、运营商或组织、公司名称与类型、网络与使用类型，以及 VPN、代理、Tor、机房、移动网络、中继、住宅代理、爬虫、滥用与 Bogon 标记；还包括风险分、信任分、风险标签、代理提供商、扫描分类、扫描活动名称和最近观察时间。IPSuper 读取逐库表头、使用类型与公司类型、具名风险百分比和风险标记矩阵。扩展同时记录来源、查询时间、耗时、缓存状态和失败或手动验证状态。</p>
+      <p>解析器会在来源页面内检查已渲染文字、表格或 JSON，并核对目标 IP；它只回传上述字段与状态，不回传整页、截图或浏览器的完整浏览历史。</p>
+
+      <h2>数据发送到哪里</h2>
+      <p>目标 IP 会发送到上述查询服务；这些服务也会像普通访问一样看到连接的出口 IP，并按各自政策处理请求。ip-api.com 免费接口使用明文 HTTP，其余固定查询入口使用 HTTPS。扩展没有独立的数据收集服务器。</p>
+      <p>查询结果只通过扩展消息发给发起本轮查询的 Egress 标签页，再由该页的桥接脚本向同一页面来源发布。桥接脚本仅匹配 <code>https://blackslience-reaper.github.io/egress-observatory/*</code>、<code>http://127.0.0.1:4187/*</code> 和 <code>http://localhost:4187/*</code>。扩展不会向其他标签页广播报告。</p>
+      <p>扩展不会读取或导出 Cookie、登录账号、密码、认证令牌或 API key，也不会把这些凭据复制给 Egress 或其他服务；它们由浏览器管理。来源结果页按浏览器正常规则使用自身会话，浏览器可能向 Cookie 所属站点发送 Cookie。扩展的公开 JSON 请求使用 <code>credentials: 'omit'</code>，不附带 Cookie 或其他浏览器会话凭据。</p>
+
+      <h2>临时标签、手动验证与缓存</h2>
+      <p>扩展可以复用已打开的同一目标结果页；用户原有标签不会被导航或关闭。扩展创建的临时标签尽量归入“Egress 自动查询”组，读取完成即关闭。人机验证由用户手动完成，扩展不点击、求解或绕过验证码；等待时保留来源标签，通过后继续读取。“停止等待”、切换查询或离开、关闭发起查询的页面会取消本轮，并清理本轮创建的标签。临时组随其最后一个标签关闭而消失。</p>
+      <p>成功结果按来源和 IP 缓存在扩展 Service Worker 的内存中，最多 128 项，只在原始成功时间后的 10 分钟内复用。10 分钟是复用期限；过期条目可能留在内存直到被覆盖、容量淘汰或 Service Worker 停止。扩展不把缓存写入磁盘或浏览器同步存储。</p>
+
+      <h2>权限用途</h2>
+      <ul>
+        <li><code>tabs</code>：查找可复用的目标结果页，检查查询标签的 URL 与状态，定位发起页面、按用户操作切换验证页，并创建和清理扩展自己的临时标签。</li>
+        <li><code>scripting</code>：在已授权的来源结果页运行扩展随包提供的字段提取函数。</li>
+        <li><code>tabGroups</code>：为本轮临时标签设置组名与颜色，便于识别和清理。</li>
+        <li><code>host_permissions</code>：允许访问上述指定来源的 JSON 接口或读取其结果页；不会用于读取其他网站。</li>
+      </ul>
+
+      <h2>用途限制与联系</h2>
+      <p>扩展没有分析统计、广告追踪或遥测，不出售查询数据，也不为广告、数据经纪或与 IP 查询无关的目的共享数据。目标 IP 仅用于必要的来源查询，提取结果仅回到发起页面。扩展将数据用途和传输限制在上述单一功能内，遵守 Chrome Web Store 用户数据政策的 Limited Use 限制。</p>
+      <p>Egress 网站本身还会调用数据接口、进行连接实测，并为共享人数估计记录目标 IP 与查询方的加盐哈希，记录超过 30 天后在后续检测时删除；这些网站行为独立于扩展，详见 <a href="https://github.com/BlackSlience-Reaper/egress-observatory#隐私">项目 README 的隐私说明</a>。本政策中的“无统计”指扩展。</p>
+      <p>隐私问题与数据处理反馈请提交至 <a href="https://github.com/BlackSlience-Reaper/egress-observatory/issues" target="_blank" rel="noopener noreferrer">GitHub Issues</a>；公开反馈中请隐去真实 IP 和凭据。</p>
+    </article>
+
+    <article id="english" class="card policy-copy" lang="en" aria-labelledby="english-title">
+      <h2 id="english-title">Extension privacy policy</h2>
+      <p class="muted small">Last updated: 2026-11-05</p>
+      <p>This policy covers the “Egress 自动网页查询” (Egress Browser Helper) extension. Its single purpose is to supplement an Egress page with public intelligence about the public IP being queried. When an Egress page starts a query, the extension visits fixed providers, extracts the matching results, and returns them one provider at a time.</p>
+
+      <h3>Sites and fields read</h3>
+      <p>The host permissions cover all paths on these exact schemes and hosts. Actual lookup URLs are fixed in the packaged provider list.</p>
+      <ul class="policy-sites">
+        <li>Aggregation: <code>https://ipsuper.com/*</code>.</li>
+        <li>Network and location pages: <code>https://ipinfo.io/*</code>, <code>https://www.ip2location.io/*</code>, <code>https://ipregistry.co/*</code>, <code>https://ipdata.co/*</code>, <code>https://db-ip.com/*</code>.</li>
+        <li>Risk and threat pages: <code>https://iphub.info/*</code>, <code>https://www.ipqualityscore.com/*</code>, <code>https://scamalytics.com/*</code>, <code>https://viz.greynoise.io/*</code>, <code>https://www.abuseipdb.com/*</code>, <code>https://proxycheck.io/*</code>.</li>
+        <li>Public JSON endpoints: <code>https://blackbox.ipinfo.app/*</code>, <code>https://api.ipquery.io/*</code>, <code>https://api.ipapi.is/*</code>, <code>https://www.iplocate.io/*</code>, <code>https://json.geoiplookup.io/*</code>, <code>http://ip-api.com/*</code>.</li>
+      </ul>
+      <p>Available fields include the target IP; country, region, city, time zone and coordinates; ASN, ISP, organization, company name and type, network and usage type; VPN, proxy, Tor, hosting, mobile, relay, residential proxy, crawler, abuse and bogon indicators; risk and trust scores, risk labels, proxy provider, scanner classification, actor name and last-seen time. IPSuper extraction covers named database headers, usage/company types, named risk percentages and the risk indicator matrix. Reports also contain provider names, timestamps, elapsed time, cache status, errors and manual-verification status.</p>
+      <p>The parser checks rendered text, tables or JSON inside provider pages and matches the target IP. Only the listed fields and status information are returned. Full pages, screenshots and general browsing history are not exported.</p>
+
+      <h3>Data destinations and credentials</h3>
+      <p>The target IP is sent to the listed lookup services. Providers also see the connection's public IP as with any normal visit and process requests under their own policies. The free ip-api.com endpoint uses unencrypted HTTP; the other fixed lookup destinations use HTTPS. The extension operates no separate collection server.</p>
+      <p>Results go only to the Egress tab that initiated that query through extension messages, then to that page's own origin through its bridge script. The bridge matches only <code>https://blackslience-reaper.github.io/egress-observatory/*</code>, <code>http://127.0.0.1:4187/*</code> and <code>http://localhost:4187/*</code>. Reports are not broadcast to other tabs.</p>
+      <p>The extension does not read or export cookies, account credentials, passwords, authentication tokens or API keys, or copy them to Egress or another service. Credentials remain browser-managed. Provider pages use their normal browser session, which may send cookies back to their owning site. Public JSON requests use <code>credentials: 'omit'</code> and omit cookies and other browser session credentials.</p>
+
+      <h3>Tabs, manual challenges and retention</h3>
+      <p>A matching result tab already opened by the user may be reused without navigating or closing it. New temporary tabs are grouped under “Egress 自动查询” where grouping is available and closed after reading. The extension never clicks, solves or bypasses CAPTCHAs. A challenged page stays open for the user to complete verification manually, after which extraction resumes. Stopping the wait, starting another query, leaving or closing the initiating page cancels the job and cleans up its temporary tabs. The temporary group disappears when its last tab closes.</p>
+      <p>Successful results are cached by provider and IP in service-worker memory, with up to 128 entries. They may be reused for 10 minutes from their original success timestamp. This is a reuse limit: expired entries may remain in memory until replacement, eviction or service-worker termination. The extension writes no cache to disk or browser sync storage.</p>
+
+      <h3>Why permissions are needed</h3>
+      <ul>
+        <li><code>tabs</code>: find reusable target result tabs, inspect their URLs and state, identify the initiating tab, focus verification pages on request, and create and close the extension's own temporary tabs.</li>
+        <li><code>scripting</code>: run packaged extraction functions in authorized provider result pages.</li>
+        <li><code>tabGroups</code>: name and color the temporary query group for recognition and cleanup.</li>
+        <li><code>host_permissions</code>: request the listed providers' JSON endpoints or read their result pages solely for the IP lookup.</li>
+      </ul>
+
+      <h3>Limited use and contact</h3>
+      <p>The extension has no analytics, ad tracking or telemetry. Query data is not sold or shared for advertising, data brokerage or any purpose unrelated to the IP lookup. The target IP is used only for necessary provider queries, and extracted results return only to the initiating page. Data use and transfer are limited to this disclosed single purpose, consistent with the Limited Use requirements of the Chrome Web Store User Data Policy.</p>
+      <p>The Egress website separately calls data APIs, performs connection checks, and estimates shared usage by recording the target IP and a salted hash of the requester. Records older than 30 days are deleted during subsequent checks. These website activities are separate from the extension; see the <a href="https://github.com/BlackSlience-Reaper/egress-observatory#隐私">privacy section in the project README</a>. The no-analytics statement above applies to the extension.</p>
+      <p>Contact the maintainer about privacy or data handling through <a href="https://github.com/BlackSlience-Reaper/egress-observatory/issues" target="_blank" rel="noopener noreferrer">GitHub Issues</a>. Redact actual IPs and credentials in public reports.</p>
+    </article>
+    <footer class="footer"><p><a href="./">返回 Egress / Back to Egress</a> · <a href="https://github.com/BlackSlience-Reaper/egress-observatory/tree/master/browser-helper" target="_blank" rel="noopener noreferrer">扩展源码 / Extension source ↗</a></p></footer>
+  </main>
+</body>
+</html>
