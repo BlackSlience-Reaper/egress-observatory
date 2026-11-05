@@ -91,6 +91,28 @@ npm test
 python3 local_server.py
 ```
 
+### 离线模拟模式
+
+开发前端不需要后端访问权限、线上服务或任何 API key。项目没有构建步骤，也没有运行时 npm 依赖；用 Python 提供静态页面即可：
+
+```bash
+python -m http.server 4187 --bind 127.0.0.1
+```
+
+macOS / Linux 可将 `python` 换成 `python3`。打开 `http://127.0.0.1:4187/?mock=1`，页面顶部显示「模拟数据 / mock mode」和场景选择框。也可以使用 `localhost` 或 `[::1]`；IPv6 本地服务用 `--bind ::1`。其他主机名上的 `mock` 参数无效，省略参数或使用 `mock=0` 时走正常查询。
+
+- `mock=1` 或 `mock=clean`：干净家宽，默认场景。
+- `mock=proxy`：机房加代理。
+- `mock=partial`：部分来源失败，包含 HTTP 错误和网络错误。
+- `mock=rate-limit`：部分来源返回 HTTP 429。
+- `mock=timeout`：部分来源保持等待，直到调用方的超时或取消信号触发，通常约 12 秒。
+
+未知的非空场景名回退到干净家宽。选择场景会刷新当前页面，并保留目标 IP。所有场景使用同一组文档保留地址，默认出口为 `203.0.113.10` 和 `2001:db8::10`；查询框仅接受 `192.0.2.0/24`、`198.51.100.0/24`、`203.0.113.0/24`、`2001:db8::/32` 内的地址。
+
+出口识别、各数据源、健康检查、网页补全、ASN、DNS-over-HTTPS 黑名单、CIDR 列表、共享人数，以及 DNS / TCP / IPv6 的 `fetch` 请求均由 `src/mock-fixtures.js` 的手写数据回答。失败场景的网页补全也保留相应来源的失败状态。未知请求会抛出网络错误，并在控制台输出 `[mock]` 警告，绝不转发到线上。模拟模式下跳过 WebRTC / STUN、Turnstile、reCAPTCHA 及其校验接口、Chrome 插件查询，并显示跳过原因；国旗图片也不加载。时区和语言仍读取当前浏览器。
+
+模拟数据不读取或写入真实来源缓存，查询历史单独保存，导出报告包含 `mock` 场景字段，分享链接保留场景参数。只有启用模拟模式时才下载 mock 实现和 fixture 模块，正常访问沿用原有请求路径。
+
 ### 网页查询功能
 
 本地的“查询”和网页补全还需要 Playwright 和 Chromium。Windows 上用 `python`，macOS / Linux 上用 `python3`：

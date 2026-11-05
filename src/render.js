@@ -1,10 +1,11 @@
 /** DOM rendering. All external text goes through esc(). */
 import { esc, countryName, maskIP, maskText, formatOffset, zoneOffset } from './util.js?v=4.1';
-import { SOURCES } from './sources.js?v=3.3';
+import { SOURCES } from './sources.js?v=3.5';
 import { DNSBLS, CIDR_LISTS } from './blocklists.js';
 import { CATEGORIES, TYPE_LABEL } from './score.js?v=4.8';
-import { captchaConfig } from './captcha.js';
+import { captchaConfig } from './captcha.js?v=4.3';
 import { PAGE_PROVIDERS } from './page-providers.js?v=1';
+import { mockMode } from './mock-mode.js?v=1';
 
 const $ = id => document.getElementById(id);
 
@@ -17,7 +18,7 @@ const ICONS = {
   pending: '<svg viewBox="0 0 16 16" aria-hidden="true" class="spin"><circle cx="8" cy="8" r="6" stroke-dasharray="26 12"/></svg>',
 };
 const icon = level => `<span class="ico ico-${level}">${ICONS[level] || ICONS.none}</span>`;
-const flag = code => code ? `<img class="flag" src="https://flagcdn.com/w40/${esc(code.toLowerCase())}.png" alt="" width="20" height="15" loading="lazy" referrerpolicy="no-referrer">` : '';
+const flag = code => code && !mockMode ? `<img class="flag" src="https://flagcdn.com/w40/${esc(code.toLowerCase())}.png" alt="" width="20" height="15" loading="lazy" referrerpolicy="no-referrer">` : '';
 /** Shown wherever a value is still on its way from a third-party source, so it never reads as "no data". */
 const WAIT = '<span class="wait">等待第三方返回…</span>';
 const place = (code, city) => code ? `${flag(code)}<span>${city ? `${esc(city)}，` : ''}${esc(countryName(code))}</span>` : '<span class="muted">—</span>';
@@ -404,7 +405,7 @@ export function renderLive(run, result, egress, view) {
   const lv = key => result.live[key] || (p[key]?.status === 'error' ? 'none' : p[key] ? 'info' : 'pending');
   const tiles = [];
   const w = p.webrtc;
-  tiles.push({ label: 'WebRTC', level: lv('webrtc'), value: !w ? '检测中' : w.status !== 'ok' ? '失败' : !w.supported ? '已禁用' : w.leak ? `泄漏 ${w.leakIPs.map(ip => ipSpan(ip, view.masked)).join(' ')}` : w.srflx.length ? '无泄漏' : 'UDP 不通', sub: w?.status === 'ok' ? esc(w.leak ? '' : w.srflx.length ? 'UDP 出口一致' : '') : '', pts: itemPts(result, 'webrtc'), title: w?.summary });
+  tiles.push({ label: 'WebRTC', level: w?.status === 'skip' ? 'none' : lv('webrtc'), value: !w ? '检测中' : w.status === 'skip' ? '已跳过' : w.status !== 'ok' ? '失败' : !w.supported ? '已禁用' : w.leak ? `泄漏 ${w.leakIPs.map(ip => ipSpan(ip, view.masked)).join(' ')}` : w.srflx.length ? '无泄漏' : 'UDP 不通', sub: w?.status === 'ok' ? esc(w.leak ? '' : w.srflx.length ? 'UDP 出口一致' : '') : esc(w?.reason || ''), pts: itemPts(result, 'webrtc'), title: w?.reason || w?.summary });
   const d = p.dnsClassified;
   const dnsTitle = { own: '同网解析', same: '同一国家', public: '公共 DNS 跨区', leak: 'DNS 泄漏', 'leak-cn': '真实位置泄漏' };
   tiles.push({ label: 'DNS 解析', level: lv('dns'), value: !d ? '检测中' : d.status !== 'ok' ? '失败' : `${esc(dnsTitle[d.verdict] || '—')}`, sub: d?.status === 'ok' ? groupResolvers(d.resolvers).slice(0, 2).map(group => `${flag(group.country)}${ipText(group.org || group.ip)}${group.count > 1 ? ` ×${group.count}` : ''}`).join(' ') : esc(d?.error || ''), pts: itemPts(result, 'dns'), title: [d?.summary, d?.ecsSummary].filter(Boolean).join('；') });
@@ -438,9 +439,9 @@ function renderCaptcha(run, result) {
   const card = (kind, title, data, extra) => {
     // Configuration problems are neutral: they say nothing about this visitor and are never scored.
     const level = !data ? 'pending' : data.status === 'skip' || data.status === 'error' ? 'none' : result.live[kind] || 'info';
-    const head = !data ? '正在实测…' : data.status === 'skip' ? (data.pendingSecret ? '待后端密钥' : '未配置') : data.status === 'error' ? '未计分' : kind === 'turnstile'
+    const head = !data ? '正在实测…' : data.status === 'skip' ? (data.mock ? '已跳过' : data.pendingSecret ? '待后端密钥' : '未配置') : data.status === 'error' ? '未计分' : kind === 'turnstile'
       ? { silent: '直接通过', interactive: '需要验证', fail: '未通过' }[data.outcome] : `${data.score.toFixed(1)} 分`;
-    const body = !data ? '用你现在的网络和浏览器真跑一次。' : data.status === 'skip' ? `${esc(data.reason)}${data.pendingSecret ? '' : '，配置 site key 后自动运行'}；不影响其他评分。` : esc(data.summary || data.error || '');
+    const body = !data ? '用你现在的网络和浏览器真跑一次。' : data.mock ? esc(data.reason) : data.status === 'skip' ? `${esc(data.reason)}${data.pendingSecret ? '' : '，配置 site key 后自动运行'}；不影响其他评分。` : esc(data.summary || data.error || '');
     return `<div class="cap lv-${level}">
       <div class="cap-head">${icon(level)}<strong>${esc(title)}</strong><span class="cap-result">${esc(head)}</span>${pen(itemPts(result, kind))}</div>
       <p>${body}</p>${extra || ''}
@@ -449,7 +450,7 @@ function renderCaptcha(run, result) {
   };
   const tsNote = ts?.test ? '<p class="muted small">本地测试密钥：结果恒为通过，仅用于验证流程。</p>' : ts?.server && !ts.server.verified ? `<p class="muted small">${esc(ts.server.reason)}</p>` : '';
   $('captcha').innerHTML = card('turnstile', 'Cloudflare Turnstile', ts, tsNote) + card('recaptcha', 'Google reCAPTCHA v3', rc,
-    '<p class="muted small">本站受 reCAPTCHA 保护，适用 Google <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">隐私政策</a>和<a href="https://policies.google.com/terms" target="_blank" rel="noopener noreferrer">服务条款</a>。</p>');
+    mockMode ? '' : '<p class="muted small">本站受 reCAPTCHA 保护，适用 Google <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">隐私政策</a>和<a href="https://policies.google.com/terms" target="_blank" rel="noopener noreferrer">服务条款</a>。</p>');
 }
 
 // ---------- ASN profile ----------
@@ -599,7 +600,7 @@ export function renderLookupStatus(run) {
   const server = Object.values(run.pageLookups || {});
   const parts = [];
   if(chrome.version)parts.push(`插件 ${ok}/${chrome.total || rows.length || '…'}`+(chrome.active?' 查询中':''));
-  else parts.push('未连接插件');
+  else parts.push(mockMode ? '模拟模式：已跳过 Chrome 插件查询' : '未连接插件');
   if(waiting)parts.push(`${waiting} 个待验证`);
   if(failed)parts.push(`${failed} 个失败`);
   if(chrome.error)parts.push(chrome.error);

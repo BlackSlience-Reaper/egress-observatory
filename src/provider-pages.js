@@ -2,6 +2,7 @@ import { sameIP } from './util.js';
 import { fillSource } from './supplements.js?v=3';
 import { extractProviderPage } from './page-extract.js?v=4.1';
 import { PAGE_PROVIDERS } from './page-providers.js?v=1';
+import { mockMode } from './mock-mode.js?v=1';
 
 export const PAGE_SOURCES = Object.keys(PAGE_PROVIDERS).filter(id=>id!=='ipsuper');
 const fields = new Set(['country','city','region','asn','org','companyName','tz','usageType','companyType','asnType','usageDetail','connectionType','risk','trustScore','riskLabel','block','geoVote','lat','lon','noise','classification','name','lastSeen','proxyProvider']);
@@ -59,6 +60,7 @@ export function mergeProviderPage(record, page, name) {
  * onPartial(report) receives each source as soon as it is read; the promise resolves with the full report.
  */
 export function lookupChromePages(ip,signal,{onStart=()=>{},onPartial=()=>{},skip=[]}={}) {
+  if (mockMode) return Promise.resolve({ ip, time: Date.now(), sources: Object.fromEntries(PAGE_SOURCES.map(id => [id, { status: 'skip', error: '模拟模式：已跳过 Chrome 插件查询' }])), thirdParty: { status: 'skip', error: '模拟模式：已跳过 Chrome 插件查询' } });
   return new Promise((resolve,reject)=>{
     signal.throwIfAborted();
     const requestId = crypto.randomUUID();

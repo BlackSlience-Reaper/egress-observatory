@@ -3,6 +3,7 @@
  * and Google reCAPTCHA v3 (0.0–1.0 score, read server-side with the secret).
  */
 import { API_BASE, TURNSTILE_SITE_KEY, RECAPTCHA_SITE_KEY } from '../config.js';
+import { mockMode } from './mock-mode.js?v=1';
 
 const TEST_TURNSTILE = '1x00000000000000000000AA';
 const isLocal = ['127.0.0.1', 'localhost', '[::1]'].includes(location.hostname);
@@ -63,6 +64,7 @@ async function verify(kind, token, health) {
 }
 
 export async function runTurnstile(container, health) {
+  if (mockMode) return { status: 'skip', mock: true, reason: '模拟模式：已跳过 Turnstile 实测与服务端校验' };
   if (!captchaConfig.turnstile) return { status: 'skip', reason: '未配置 Turnstile site key' };
   try { await loadScript('https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'); }
   catch { return { status: 'ok', outcome: 'fail', summary: 'Turnstile 脚本被拦截或无法连接 Cloudflare' }; }
@@ -106,6 +108,7 @@ export async function runTurnstile(container, health) {
 }
 
 export async function runRecaptcha(health) {
+  if (mockMode) return { status: 'skip', mock: true, reason: '模拟模式：已跳过 reCAPTCHA 实测与服务端校验' };
   if (!captchaConfig.recaptcha) return { status: 'skip', reason: '未配置 reCAPTCHA site key' };
   const key = encodeURIComponent(captchaConfig.recaptcha);
   try { await loadScript(`https://www.google.com/recaptcha/api.js?render=${key}`); }

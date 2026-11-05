@@ -6,6 +6,7 @@
  */
 import { getJSON, countryCode, asnNumber, text, bool, num, parseIP, sameIP, reverseName } from './util.js';
 import { API_BASE } from '../config.js';
+import { mockMode } from './mock-mode.js?v=1';
 
 const flags = (values = {}) => ({ vpn: null, proxy: null, tor: null, hosting: null, relay: null, abuser: null, crawler: null, mobile: null, bogon: null, ...values });
 const RIPE = 'https://stat.ripe.net/data';
@@ -568,6 +569,7 @@ const FRESH_MS = 6 * 3600e3;
 const STALE_MS = 24 * 3600e3;
 
 export function readCopy(kind, ip) {
+  if (mockMode) return null;
   try {
     const row = JSON.parse(localStorage.getItem(COPY + kind + ':' + ip));
     return row && Number.isFinite(row.time) && Date.now() - row.time < STALE_MS && row.value ? row : null;
@@ -575,6 +577,7 @@ export function readCopy(kind, ip) {
 }
 
 export function keepCopy(kind, ip, value) {
+  if (mockMode) return;
   try {
     localStorage.setItem(COPY + kind + ':' + ip, JSON.stringify({ time: Date.now(), value }));
     const keys = Object.keys(localStorage).filter(key => key.startsWith(COPY));

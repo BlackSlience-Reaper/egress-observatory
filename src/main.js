@@ -1,18 +1,22 @@
 import { lookupIPOK, lookupDBIPWeb, fillSource } from './supplements.js?v=3';
 import { readIPinfoPage, mergeIPinfoPage } from './ipinfo-page.js?v=3.4';
 import { setupImport, supplementTypes, readReport, readRiskReport, mergeTypeReports, mergeRiskReports } from './ipsuper.js?v=3.4';
-import { setupProviderImport, readProviderReport, mergeProviderPage, lookupChromePages } from './provider-pages.js?v=4.1';
+import { setupProviderImport, readProviderReport, mergeProviderPage, lookupChromePages } from './provider-pages.js?v=4.2';
 /** Orchestration: detect the egress, fan out every check, rescore as results arrive. */
 import { API_BASE } from '../config.js?v=cloud2';
 import { lookupPage } from './page-lookups.js?v=6';
 import { getJSON, parseIP, isPublicIP, sameIP, maskIP, maskText } from './util.js?v=4.1';
-import { SOURCES, runSource } from './sources.js?v=3.3';
+import { SOURCES, runSource } from './sources.js?v=3.5';
 import { DNSBLS, checkDNSBL, CIDR_LISTS, checkCIDRList, asnAbuseDensity } from './blocklists.js';
 import { fetchASN, inferASN, detectLease } from './asn.js?v=4.3';
-import { detectEgress, summarizeEgress, probeWebRTC, probeDNS, classifyDNS, probeTCP, probeEnvironment, probeIPv6, classifyIPv6, traceProbe } from './probes.js';
-import { runTurnstile, runRecaptcha } from './captcha.js?v=4.2';
+import { detectEgress, summarizeEgress, probeWebRTC, probeDNS, classifyDNS, probeTCP, probeEnvironment, probeIPv6, classifyIPv6, traceProbe } from './probes.js?v=1';
+import { runTurnstile, runRecaptcha } from './captcha.js?v=4.3';
 import { score } from './score.js?v=4.8';
-import * as view from './render.js?v=4.22';
+import * as view from './render.js?v=4.24';
+import { mockMode, isMockIP } from './mock-mode.js?v=1';
+
+const mockScenario = mockMode ? (await import('./mock.js?v=1')).installMock(mockMode) : '';
+const validIP = ip => mockMode ? isMockIP(ip) : isPublicIP(ip);
 
 const $ = id => document.getElementById(id);
 $('types').addEventListener('click',event=>{if(event.target.closest('[data-lookup-details]'))$('lookup-details').open=true;});
@@ -176,9 +180,9 @@ function clientId() {
 }
 
 // The last six addresses checked in this browser, newest first. Kept only in localStorage.
-const HISTORY = 'egress-history';
+const HISTORY = mockMode ? 'egress-mock-history' : 'egress-history';
 function readHistory() {
-  try { const list = JSON.parse(localStorage.getItem(HISTORY)); return Array.isArray(list) ? list.map(ip => parseIP(ip)?.ip).filter(ip => ip && isPublicIP(ip)).slice(0, 6) : []; }
+  try { const list = JSON.parse(localStorage.getItem(HISTORY)); return Array.isArray(list) ? list.map(ip => parseIP(ip)?.ip).filter(ip => ip && validIP(ip)).slice(0, 6) : []; }
   catch { return []; }
 }
 function rememberIP(ip) {
@@ -189,7 +193,7 @@ function rememberIP(ip) {
 
 async function startRun(input, fetchPages = true) {
   const parsed = parseIP(input);
-  if (!parsed || !isPublicIP(parsed.ip)) { $('status').textContent = '请输入有效的公网 IPv4 或 IPv6 地址。'; return; }
+  if (!parsed || !validIP(parsed.ip)) { $('status').textContent = mockMode ? '模拟模式仅接受文档保留地址，如 203.0.113.10 或 2001:db8::10。' : '请输入有效的公网 IPv4 或 IPv6 地址。'; return; }
   rememberIP(parsed.ip);
   const healthReady = refreshHealth(true);
   app.run?.controller.abort();
@@ -456,6 +460,7 @@ function exportReport() {
   // Hidden mode masks every address in the report (the IP, its /24, neighbours, hostnames), not just the exact IP string.
   const hide = value => (app.masked && typeof value === 'string' ? maskText(value, [run.ip]) : value);
   const report = {
+    ...(mockMode ? { mock: mockScenario } : {}),
     schema: 'egress-report/v3', exportedAt: new Date().toISOString(), ip: app.masked ? maskIP(run.ip) : run.ip, self: run.self,
     score: run.result.score, ipScore: run.result.ipScore, grade: run.result.grade, verdict: run.result.verdict,
     categories: run.result.categories, uses: run.result.uses, summary: run.result.summary,
@@ -475,6 +480,7 @@ async function share() {
   if (!run) return;
   const url = new URL(location.href);
   url.search = `?ip=${encodeURIComponent(run.ip)}`;
+  if (mockMode) url.searchParams.set('mock', mockScenario);
   const button = $('share');
   try { await navigator.clipboard.writeText(url.href); button.dataset.done = '已复制链接'; }
   catch { button.dataset.done = '复制失败'; }

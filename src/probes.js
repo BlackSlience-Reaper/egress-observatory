@@ -3,6 +3,7 @@
  * apply when the queried IP is the visitor's current egress.
  */
 import { getJSON, parseIP, isPublicIP, sameIP, randomId, countryCode, asnNumber, sleep, zoneOffset } from './util.js';
+import { mockMode, isMockIP } from './mock-mode.js?v=1';
 
 const traceParse = body => Object.fromEntries(String(body || '').split('\n').map(line => line.split('=')).filter(pair => pair.length === 2).map(([key, value]) => [key.trim(), value.trim()]));
 
@@ -23,7 +24,7 @@ export async function detectEgress(signal, onUpdate) {
   await Promise.all(EGRESS_ENDPOINTS.map(async (endpoint, index) => {
     const result = await getJSON(endpoint.url, { signal, timeout: 8000, as: endpoint.as || 'json' });
     const parsed = result.ok ? parseIP(endpoint.pick(result.data)) : null;
-    results[index] = { ...results[index], status: parsed && isPublicIP(parsed.ip) ? 'ok' : 'error', ip: parsed?.ip || null, v: parsed?.v || null, ms: result.ms, raw: endpoint.as === 'text' && endpoint.id !== 'ipsb' ? traceParse(result.data) : null };
+    results[index] = { ...results[index], status: parsed && (mockMode ? isMockIP(parsed.ip) : isPublicIP(parsed.ip)) ? 'ok' : 'error', ip: parsed?.ip || null, v: parsed?.v || null, ms: result.ms, raw: endpoint.as === 'text' && endpoint.id !== 'ipsb' ? traceParse(result.data) : null };
     onUpdate?.(results);
   }));
   return summarizeEgress(results);
@@ -46,6 +47,7 @@ export function summarizeEgress(results) {
 // ---------- WebRTC ----------
 
 export async function probeWebRTC(egressIPs, signal) {
+  if (mockMode) return { status: 'skip', reason: '模拟模式：已跳过 WebRTC / STUN 实测' };
   if (typeof RTCPeerConnection !== 'function') return { status: 'ok', supported: false, srflx: [], leak: false, summary: '浏览器不支持或已禁用 WebRTC' };
   const candidates = [];
   let pc;
