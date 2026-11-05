@@ -27,7 +27,7 @@ jobs:
       - name: Unit tests
         run: npm test
       - name: Python syntax
-        run: python -m compileall -q local_server.py cloud_server.py provider_pages.py
+        run: python -m compileall -q local_server.py provider_pages.py
       - name: Extension files match the site
         shell: bash
         run: |
