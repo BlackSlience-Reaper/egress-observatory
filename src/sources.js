@@ -6,7 +6,7 @@
  */
 import { getJSON, countryCode, asnNumber, text, bool, num, parseIP, sameIP, reverseName } from './util.js';
 import { API_BASE } from '../config.js';
-import { OWN_KEY_PROVIDERS, keyFor, ownKeyResponse } from './own-keys.js?v=1';
+import { OWN_KEY_PROVIDERS, keyFor, ownKeyResponse } from './own-keys.js?v=2';
 
 const flags = (values = {}) => ({ vpn: null, proxy: null, tor: null, hosting: null, relay: null, abuser: null, crawler: null, mobile: null, bogon: null, ...values });
 const RIPE = 'https://stat.ripe.net/data';
