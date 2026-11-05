@@ -195,7 +195,7 @@ npm test
 
 ## 联系与合作
 
-广告投放、数据合作或其他合作，请在 X 上联系 [@BlackSlience](https://x.com/BlackSlience)。问题反馈和功能建议请走 [Issues](https://github.com/BlackSlience-Reaper/egress-observatory/issues)；安全问题不要公开，请直接在 X 上私信。
+广告投放、数据合作或其他合作，请在 X 上联系 [@BlackSlience](https://x.com/BlackSlience)。问题反馈和功能建议请走 [Issues](https://github.com/BlackSlience-Reaper/egress-observatory/issues)；安全问题不要公开，请通过[私密漏洞报告](https://github.com/BlackSlience-Reaper/egress-observatory/security/advisories/new)提交。
 
 ## 赞助
 
