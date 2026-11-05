@@ -1,20 +1,20 @@
 # 参与开发
 
-任务统一放在 [Issues](https://github.com/BlackSlience-Reaper/egress-observatory/issues)，通过 PR 完成。`main` 受保护，任何人（包括仓库管理员）都不能直接推送。
+任务统一放在 [Issues](https://github.com/BlackSlience-Reaper/egress-observatory/issues)，通过 PR 完成。`master` 受保护，任何人（包括仓库管理员）都不能直接推送。
 
-**合并到 `main` 就等于发布**：GitHub Pages 从 `main` 根目录直接提供网站。
+**合并到 `master` 就等于发布**：GitHub Pages 从 `master` 根目录直接提供网站。
 
 ## 工作流
 
 1. **建 issue**：在 [新建页面](https://github.com/BlackSlience-Reaper/egress-observatory/issues/new/choose) 选一个模板，自己要做的工作选“开发任务”。
-2. **开分支**：从最新的 `main` 拉出，分支名用 `<issue 编号>-<简短描述>`。
+2. **开分支**：从最新的 `master` 拉出，分支名用 `<issue 编号>-<简短描述>`。
 3. **提 PR**：按模板填写，正文写 `Closes #编号`，合并时 issue 会自动关闭。
 4. **合并**：CI 通过后 squash 合并，远程分支会自动删除。
 
 常用命令（把 `12` 换成你的 issue 编号）：
 
 ```bash
-gh issue develop 12 --base main --name 12-short-description --checkout
+gh issue develop 12 --base master --name 12-short-description --checkout
 ```
 
 ```bash
@@ -29,10 +29,10 @@ gh pr create
 gh pr merge --squash
 ```
 
-合并后回到 `main` 并清理：
+合并后回到 `master` 并清理：
 
 ```bash
-git switch main
+git switch master
 git pull --prune
 git branch -d 12-short-description
 ```
@@ -100,6 +100,30 @@ python -m pip install playwright
 python -m playwright install chromium
 ```
 
+### 本地页面与模拟模式
+
+开发前端不需要后端权限，也不需要任何 key。
+
+`local_server.py` 启动后打开 <http://127.0.0.1:4187/> 是普通本地页面：
+
+- 它请求线上公开 API 和第三方接口，结果取决于网络和额度，并且和线上访客共用按 IP 计算的频率限制。
+- 页面必须在 4187 端口上提供。线上 API 的 CORS 只放行 `127.0.0.1` 和 `localhost` 的 4187 端口，其他端口和 fork 托管的 GitHub Pages 都会被拒绝。
+- 它不调用 `/v1/seen`，所以本地开发不会写进线上的共享人数记录，“共享人数”一项留空。
+
+不想受这些限制，就在 `localhost` 或 `127.0.0.1` 上加 `?mock=1`：<http://127.0.0.1:4187/?mock=1>。所有数据请求都由 `src/mock-fixtures.js` 里手写的 fixture 回答，不需要线上服务、key 或外网，端口也不限。WebRTC、人机验证和 Chrome 插件不走 `fetch`，直接跳过；时区和语言也取自场景，所以同一场景在每台电脑上结果相同。页面顶部的横幅一直标明这是模拟状态。其他域名上这个参数不起作用，也不会加载 fixture。
+
+用横幅上的链接或 `scenario` 参数切换场景：
+
+| `scenario` | 场景 | 地址 |
+| --- | --- | --- |
+| `clean`（默认） | 干净家宽 | `203.0.113.10` |
+| `datacenter` | 机房加代理 | `198.51.100.20` |
+| `partial` | 部分来源失败 | `192.0.2.30` |
+| `ratelimit` | 限流（429） | `203.0.113.40` |
+| `timeout` | 来源超时，要等来源自己的超时时间（最长约 16 秒） | `203.0.113.50` |
+
+模拟模式只接受文档保留地址，输入框里可以填其他文档保留地址，看“检测别人的 IP”时的页面。新增数据源时要在 fixture 里补上回答：没有 fixture 的请求一律返回 404，并在控制台打印警告，不会发到外网。
+
 ### 换行符
 
 `.gitattributes` 已经统一了换行符：仓库内都是 LF，`.cmd`、`.bat`、`.ps1` 在工作区是 CRLF。不需要改 `core.autocrlf`。如果 PR 的 diff 显示整个文件都变了，通常是编辑器改了换行符，改回 LF 即可。
@@ -107,7 +131,7 @@ python -m playwright install chromium
 ## 提交与 PR
 
 - **一个 PR 解决一个 issue**，无关改动另开。
-- **PR 标题就是 `main` 上的提交信息**（squash 合并，正文不进入提交信息）。用一句英文祈使句说明结果，例如 `Raise the bonus cap from 8 to 10`。
+- **PR 标题就是 `master` 上的提交信息**（squash 合并，正文不进入提交信息）。用一句英文祈使句说明结果，例如 `Raise the bonus cap from 8 to 10`。
 - **CI 必须通过**：Ubuntu 和 Windows 上都会运行单元测试、Python 语法检查，并核对扩展与网站的共用文件是否一致。
 - **PR 上的讨论要全部解决**才能合并。目前不要求审批，因为项目由一人维护，而 GitHub 不允许作者批准自己的 PR。
 
