@@ -610,12 +610,16 @@ function fromCopy(row, reason) {
 
 export async function runSource(source, ip, ctx) {
   const started = performance.now();
-  const copy = readCopy(source.id, ip);
-  if (source.quota && !keyFor(source.id) && copy && Date.now() - copy.time < FRESH_MS) return fromCopy(copy, '');
+  // Answers fetched with a visitor's own key are kept apart, so clearing the key goes back to the keyless path.
+  // A failed own-key lookup may still fall back to an earlier keyless answer.
+  const own = Boolean(keyFor(source.id));
+  const kind = own ? source.id + '+own' : source.id;
+  const copy = readCopy(kind, ip) || (own ? readCopy(source.id, ip) : null);
+  if (source.quota && !own && copy && Date.now() - copy.time < FRESH_MS) return fromCopy(copy, '');
   try {
     const data = await source.run(ip, ctx);
     const ms = data?._ms ?? Math.round(performance.now() - started);
-    if (data) { delete data._ms; keepCopy(source.id, ip, data); }
+    if (data) { delete data._ms; keepCopy(kind, ip, data); }
     return { status: 'ok', data, ms };
   } catch (error) {
     const failed = { status: error.skip ? 'skip' : 'error', error: error.soft || error.skip ? error.message : '请求失败', ms: Math.round(performance.now() - started) };
