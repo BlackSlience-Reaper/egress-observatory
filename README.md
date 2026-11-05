@@ -87,7 +87,7 @@ Chrome 网上应用店与 Edge 加载项的商店入口将在上架后启用；�
 IPinfo、IPRegistry、IPData、vpnapi.io 和 ipapi.is 允许浏览器直接调用。在页面的“多源 IP 类型 → 使用自己的 API key”里填入 key 后，这些来源由你的浏览器直接查询，用的是你自己的额度。
 
 - key 只发给对应的服务，不经过 Egress 的后端，也不会进入分享链接和导出报告。
-- 默认只保留到关闭标签页；勾选“记住”后保存在这个浏览器，随时可以清除。
+- 默认只保留到关闭标签页；勾选“记住”后保存在这个浏览器，随时可以清除。清除时，用 key 查到的结果也会一起删除。
 - 页面会加载 Cloudflare 和 Google 的验证脚本，它们和页面运行在同一环境，所以请使用额度受限、可随时作废的专用 key。
 
 Proxycheck、IPQualityScore、AbuseIPDB、GreyNoise、IPHub 和 VirusTotal 不允许浏览器直接调用，无法这样使用。
@@ -195,7 +195,7 @@ npm test
 
 ## 联系与合作
 
-广告投放、数据合作或其他合作，请在 X 上联系 [@BlackSlience](https://x.com/BlackSlience)。问题反馈和功能建议请走 [Issues](https://github.com/BlackSlience-Reaper/egress-observatory/issues)；安全问题不要公开，请直接在 X 上私信。
+广告投放、数据合作或其他合作，请在 X 上联系 [@BlackSlience](https://x.com/BlackSlience)。问题反馈和功能建议请走 [Issues](https://github.com/BlackSlience-Reaper/egress-observatory/issues)；安全问题不要公开，请通过[私密漏洞报告](https://github.com/BlackSlience-Reaper/egress-observatory/security/advisories/new)提交。
 
 ## 赞助
 

@@ -7,14 +7,14 @@ import { API_BASE } from '../config.js?v=cloud3';
 import { mock } from './mock.js?v=1';
 import { lookupPage } from './page-lookups.js?v=7';
 import { getJSON, parseIP, isPublicIP, sameIP, maskIP, maskText } from './util.js?v=4.1';
-import { SOURCES, runSource } from './sources.js?v=3.4';
-import { setupOwnKeys } from './own-keys.js?v=1';
+import { SOURCES, runSource } from './sources.js?v=3.5';
+import { setupOwnKeys } from './own-keys.js?v=2';
 import { DNSBLS, checkDNSBL, CIDR_LISTS, checkCIDRList, asnAbuseDensity } from './blocklists.js';
 import { fetchASN, inferASN, detectLease } from './asn.js?v=4.3';
 import { detectEgress, summarizeEgress, probeWebRTC, probeDNS, classifyDNS, probeTCP, probeEnvironment, probeIPv6, classifyIPv6, traceProbe } from './probes.js?v=2';
 import { runTurnstile, runRecaptcha } from './captcha.js?v=4.2';
 import { score } from './score.js?v=4.8';
-import * as view from './render.js?v=4.26';
+import * as view from './render.js?v=4.27';
 
 const $ = id => document.getElementById(id);
 // In mock mode only documentation addresses can be checked, so real ones never meet fixture answers.

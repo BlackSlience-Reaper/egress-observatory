@@ -142,6 +142,13 @@ const write = (name, keys) => {
 };
 const allKeys = () => ({ ...read('localStorage'), ...read('sessionStorage') });
 
+// Answers fetched with a key are stored apart (see runSource) and go when the keys go.
+const forgetOwnAnswers = () => {
+  try {
+    for (const name of Object.keys(localStorage)) if (/^egress-src:[^:]+\+own:/.test(name)) localStorage.removeItem(name);
+  } catch { /* Storage disabled: nothing was kept. */ }
+};
+
 export function keyFor(id) {
   // Mock mode answers from fixtures: a real key has no fixture, and its URL would end up in the console warning.
   if (mock) return null;
@@ -162,6 +169,8 @@ export async function ownKeyResponse(id, key, ip, get, matches) {
 
 export function setupOwnKeys(onChange) {
   if (mock) { document.getElementById('own-keys')?.remove(); return; }
+  // A key kept only for the session is gone once its tab closes, so its answers should not outlive it.
+  if (!Object.keys(allKeys()).length) forgetOwnAnswers();
   const form = document.getElementById('own-key-form');
   const fields = document.getElementById('own-key-fields');
   const remember = document.getElementById('own-key-remember');
@@ -195,8 +204,9 @@ export function setupOwnKeys(onChange) {
   });
   document.getElementById('own-key-clear')?.addEventListener('click', () => {
     write('localStorage', {}); write('sessionStorage', {});
+    forgetOwnAnswers();
     draw();
-    status.textContent = '已清除所有 key。';
+    status.textContent = '已清除所有 key 和用 key 查到的结果。';
     onChange();
   });
 }
