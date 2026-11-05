@@ -157,7 +157,7 @@ python -m playwright install chromium
 
 ### 本机查询服务
 
-`local_server.py` 和 `provider_pages.py` 提供本机的网页查询（4188 端口）。线上也使用这两个文件和 `src/page-extract.js`，改动时请在 PR 里说明，由维护者同步到线上。
+`local_server.py` 和 `provider_pages.py` 提供本机的网页查询（4188 端口）。改了这两个文件或 `src/page-extract.js` 时请在 PR 里说明，由维护者判断是否需要同步到线上。
 
 ### Chrome 扩展
 
@@ -183,7 +183,7 @@ python -m playwright install chromium
 - **不要提交真实 IP**。代码、测试、文档和截图里统一使用文档保留地址：`192.0.2.0/24`、`198.51.100.0/24`、`203.0.113.0/24`、`2001:db8::/32`。
 - **密钥只放在后端运行环境**。`config.js` 只放公开值。
 - **公开讨论不写线上细节**。Issue、PR 和提交信息里不要写线上版本、部署状态或内部实现。
-- **安全问题不要发公开 issue**。涉及后端的问题请按 [README](README.md#联系与合作) 的联系方式私下告知。
+- **安全问题不要发公开 issue**。请在 X 上私信 [@BlackSlience](https://x.com/BlackSlience)。
 
 ## Labels
 
