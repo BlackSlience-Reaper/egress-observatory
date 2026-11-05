@@ -1,7 +1,0 @@
-services:
-  - type: web
-    name: egress-observatory-lookup
-    runtime: docker
-    plan: free
-    healthCheckPath: /health
-    dockerfilePath: ./Dockerfile

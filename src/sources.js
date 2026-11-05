@@ -39,7 +39,7 @@ function workerRecord(data, ip) {
     flags: flags(Object.fromEntries(Object.entries(data.flags || {}).map(([key, value]) => [key, bool(value)]))),
     risk: num(data.risk), hostname: text(data.hostname), cacheHit: data.cacheHit === true,
   };
-  // The API worker answers from its 24-hour copy when the upstream refuses (quota, rate limit, outage).
+  // The API answers from its 24-hour copy when the upstream refuses (quota, rate limit, outage).
   if (data.stale) {
     const observed = Date.parse(data.observedAt);
     out.sourceNote = `云端缓存，${Number.isFinite(observed) ? copyAge(observed) + '前' : '近期'}观测；本次上游：${text(data.staleReason) || '不可用'}`;

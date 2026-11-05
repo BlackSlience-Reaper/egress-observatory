@@ -155,11 +155,11 @@ python -m playwright install chromium
 
 ### 后端
 
-`api/worker.js` **不会**随合并自动上线，需要按 [api/README.md](api/README.md#部署) 手动部署。新增路由或 secret 时同步更新路由表。
+线上后端不在这个仓库，开发和测试都不需要后端权限或 key。需要新接口或改变接口行为时，开一个 issue 描述想要的结果，由维护者处理。
 
-### 查询服务
+### 本机查询服务
 
-`local_server.py`、`cloud_server.py`、`provider_pages.py` 和 `Dockerfile` 组成 Render 上的容器（定义在 `render.yaml`）。合并后到 Render 确认部署状态，线上 `/health` 提供健康检查。
+`local_server.py` 和 `provider_pages.py` 提供本机的网页查询（4188 端口）。改了这两个文件或 `src/page-extract.js` 时请在 PR 里说明，由维护者判断是否需要同步到线上。
 
 ### Chrome 扩展
 
@@ -183,7 +183,9 @@ python -m playwright install chromium
 ## 隐私与密钥
 
 - **不要提交真实 IP**。代码、测试、文档和截图里统一使用文档保留地址：`192.0.2.0/24`、`198.51.100.0/24`、`203.0.113.0/24`、`2001:db8::/32`。
-- **密钥只放在后端运行时 secret**。`config.js` 只放公开值。
+- **密钥只放在后端运行环境**。`config.js` 只放公开值。
+- **公开讨论不写线上细节**。Issue、PR 和提交信息里不要写线上版本、部署状态或内部实现。
+- **安全问题不要发公开 issue**。请在 X 上私信 [@BlackSlience](https://x.com/BlackSlience)。
 
 ## Labels
 

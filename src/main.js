@@ -3,9 +3,9 @@ import { readIPinfoPage, mergeIPinfoPage } from './ipinfo-page.js?v=3.4';
 import { setupImport, supplementTypes, readReport, readRiskReport, mergeTypeReports, mergeRiskReports } from './ipsuper.js?v=3.4';
 import { setupProviderImport, readProviderReport, mergeProviderPage, lookupChromePages } from './provider-pages.js?v=4.1';
 /** Orchestration: detect the egress, fan out every check, rescore as results arrive. */
-import { API_BASE } from '../config.js?v=cloud2';
+import { API_BASE } from '../config.js?v=cloud3';
 import { mock } from './mock.js?v=1';
-import { lookupPage } from './page-lookups.js?v=6';
+import { lookupPage } from './page-lookups.js?v=7';
 import { getJSON, parseIP, isPublicIP, sameIP, maskIP, maskText } from './util.js?v=4.1';
 import { SOURCES, runSource } from './sources.js?v=3.4';
 import { setupOwnKeys } from './own-keys.js?v=1';
@@ -422,7 +422,7 @@ async function startRun(input, fetchPages = true) {
     checkCIDRList(CIDR_LISTS[index], parsed.ip, signal).then(result => { if (alive()) { run.lists[index] = { ...item, ...result }; scheduleRender(); } });
   });
 
-  // Count this check: how many people have gone out through this IP (see /v1/seen in the API worker).
+  // Count this check: how many people have gone out through this IP (see /v1/seen).
   healthReady.then(health => health?.seen && countsChecks ? getJSON(`${API_BASE}/v1/seen?ip=${encodeURIComponent(parsed.ip)}&client=${clientId()}`, { signal, timeout: 12000 }) : null)
     .then(result => { if (alive() && result?.ok && result.data?.status === 'success' && sameIP(result.data.ip, parsed.ip)) { run.seen = result.data; scheduleRender(); } })
     .catch(() => {});

@@ -12,7 +12,7 @@
 
 **v2.0 · 2026-11-05**
 
-[**打开网站**](https://blackslience-reaper.github.io/egress-observatory/) · [评分规则](SCORING.md) · [数据来源](DATA-SOURCES.md) · [后端](api/README.md) · [Chrome 扩展](browser-helper/README.md) · [参与开发](CONTRIBUTING.md)
+[**打开网站**](https://blackslience-reaper.github.io/egress-observatory/) · [评分规则](SCORING.md) · [数据来源](DATA-SOURCES.md) · [Chrome 扩展](browser-helper/README.md) · [参与开发](CONTRIBUTING.md)
 
 </div>
 
@@ -104,7 +104,7 @@ Windows（也可以双击“启动网站.cmd”）：
 python local_server.py
 ```
 
-打开 <http://127.0.0.1:4187/> 。页面在 4187 端口，本机查询服务在 4188 端口，都只监听 `127.0.0.1`。后端只允许 GitHub Pages 和本地 4187 端口跨域调用。加 `?captchaTest=1`（仅本地）会用 Cloudflare 的测试 key 跑一遍 Turnstile 流程，结果恒为通过。
+打开 <http://127.0.0.1:4187/> 。页面在 4187 端口，本机查询服务在 4188 端口，都只监听 `127.0.0.1`。线上接口只接受 GitHub Pages 和本地 4187 端口的跨域请求，所以本地开发请使用这个端口。加 `?captchaTest=1`（仅本地）会用 Cloudflare 的测试 key 跑一遍 Turnstile 流程，结果恒为通过。
 
 本地的“查询”还需要 Playwright 和 Chromium，首次安装（macOS / Linux 上用 `python3`）：
 
@@ -121,18 +121,18 @@ npm test
 
 ## 配置
 
-`config.js` 只放公开值：后端地址、Turnstile site key、reCAPTCHA site key。key 留空时对应实测显示“未配置”，不影响其他评分。两个 key 都要登记这些域名：`blackslience-reaper.github.io`、`127.0.0.1`、`localhost`。密钥只放在后端运行时 secret，见 [api/README.md](api/README.md)。
+`config.js` 只放公开值：后端地址、Turnstile site key、reCAPTCHA site key。key 留空时对应实测显示“未配置”，不影响其他评分。两个 key 都要登记这些域名：`blackslience-reaper.github.io`、`127.0.0.1`、`localhost`。密钥只放在后端运行环境，不进入这个仓库。
 
 后端状态查询遇到连接失败会重试一次；“重新检测”和人机验证的“再测一次”会重新检查后端。状态查询失败时，Radar 和验证码仍会尝试各自接口，连接失败按实际错误显示。Google 脚本加载、初始化、执行和服务端校验均有超时，失败后保留重试按钮；只有后端明确返回缺少密钥时才显示“未配置”。
 
-网页自动补全统一调用主 API 的 `/v1/page/*`，由主 API 唤醒 Chromium 容器并读取报告；IPinfo、IPSuper、其他来源和 GetIPIntel 的云端入口共享每个出口 IP 每分钟 30 次的查询额度，D1 原子计数跨运行实例共享。Render 在访问缓存和浏览器前必须消费主 API 生成的短期一次性凭据，直接请求 Render 会被拒绝。相同来源和目标 IP 的并发请求合并，成功报告从原始观察时间起最多保留 10 分钟。连接中断和临时服务错误会有限重试，调用者超限则显示等待原因并停止重试；整轮最长 4 分钟，切换查询会取消旧请求。本地页面优先使用 4188 服务，连接失败后使用同一线上入口。
+## 架构
 
 | 组件 | 位置 | 上线方式 |
 | --- | --- | --- |
 | 网站 | 仓库根目录，GitHub Pages | 合并到 `master` 后自动发布 |
-| API | `api/worker.js`，部署在 Sites | 手动部署，见 [api/README.md](api/README.md#部署) |
-| 网页查询服务 | `cloud_server.py`、`Dockerfile`、`render.yaml`，部署在 Render | Linux 容器从 Dockerfile 启动，`/health` 提供健康状态 |
 | Chrome 扩展 | `browser-helper/`，打包到 `downloads/` | 访客自行下载安装 |
+| 本机查询服务 | `local_server.py`、`provider_pages.py` | 只在本地运行 |
+| 线上后端 | 单独维护，不在这个仓库 | 由维护者部署；页面通过 `config.js` 里的公开地址调用 |
 
 ### 代码结构
 
@@ -146,8 +146,7 @@ npm test
 | `src/score.js` | 评分引擎，保留每项扣分的来源与解释 |
 | `src/render.js`、`styles.css` | 页面呈现 |
 | `src/page-lookups.js`、`src/provider-pages.js`、`src/page-extract.js`、`src/page-providers.js`、`src/ipinfo-page.js`、`src/ipsuper.js`、`src/supplements.js` | 来源网页读取与第三方补全 |
-| `api/worker.js` | 后端（Cloudflare Worker ESM，部署在 Sites） |
-| `local_server.py`、`cloud_server.py`、`provider_pages.py` | 本机启动器、线上查询 API 与来源网页读取 |
+| `local_server.py`、`provider_pages.py` | 本机启动器与来源网页读取 |
 | `browser-helper/` | Chrome 扩展 |
 | `tests/` | 单元测试 |
 
@@ -158,18 +157,17 @@ npm test
 **查询路径**
 
 - **IPinfo 与 IPSuper**：点击“查询”后，服务并行读取该 IP 的 IPinfo 详情页与 IPSuper 多库表，各自校验目标地址并补充缺失字段。同一 IP 的页面结果在内存保留 10 分钟。IPinfo 网页和官方接口合并为一条数据库记录；IPSuper 补充的类型按原库名标识。
-- **其他来源**：字段不足时，`/lookup/sources` 进一步尝试 IPHub、IPQualityScore、IPData、IPRegistry、DB-IP、Scamalytics、ipapi.is、IPQuery 和 Blackbox 的固定查询入口。每页核对目标 IP；网页与接口仍为同一条来源记录。受校验、额度或网络限制时逐源保留原因，已有接口结果继续展示。
+- **其他来源**：字段不足时，查询服务进一步尝试 IPHub、IPQualityScore、IPData、IPRegistry、DB-IP、Scamalytics、ipapi.is、IPQuery 和 Blackbox 的固定查询入口。每页核对目标 IP；网页与接口仍为同一条来源记录。受校验、额度或网络限制时逐源保留原因，已有接口结果继续展示。
 - **IPOK**：与已有公开接口同时提供间接补充；第三方失败或额度不足时保留原因。
 - **手动导入**：多源类型区的“从来源网页补全”提供书签与报告导入入口，支持在访客已打开的官方结果页读取字段。
 - **IPHub 的特殊处理**：block 0 显示“家宽或商业”，不增加家宽投票；网页未提供类型时保留未知。
 
 **连接与恢复**
 
-- GitHub Pages 自动使用线上 Chromium 服务，访客只需打开网站并查询。免费容器休眠后的首次请求可能需要等待唤醒。
-- 自动补全优先调用 Chromium 网页服务，连接失败时经现有 API 的 `/v1/page/ipinfo`、`/v1/page/ipsuper` 中转，随后再次尝试原入口。
-- 中转服务先唤醒容器，再读取报告；相同来源和 IP 的并发请求合并，成功报告在边缘缓存，原始观察时间起最多保留 10 分钟。
-- 前端在连接中断、临时服务错误和限流时有限重试，为备用连接保留时间；整轮最长 4 分钟，切换查询会取消旧请求。状态栏显示连接与重试进度，失败保留具体原因。
-- 本地页面优先使用 4188 服务，连接失败后使用同一线上恢复路径。
+- GitHub Pages 上的页面经后端读取来源网页，访客只需打开网站并查询。服务休眠后的首次请求可能需要等待唤醒。
+- 云端查询按访客的出口 IP 限制频率。相同来源和 IP 的并发请求合并，成功报告从原始观察时间起最多保留 10 分钟。
+- 前端在连接中断和临时服务错误时有限重试；超过查询频率时显示等待原因并停止重试。整轮最长 4 分钟，切换查询会取消旧请求。状态栏显示连接与重试进度，失败保留具体原因。
+- 本地页面优先使用 4188 服务，连接失败后使用同一线上入口。
 
 ## 隐私
 
@@ -179,7 +177,7 @@ npm test
 
 任务统一放在 [Issues](https://github.com/BlackSlience-Reaper/egress-observatory/issues)，通过 PR 合入，`master` 受保护。反馈问题或提议新数据源时请[选择对应模板](https://github.com/BlackSlience-Reaper/egress-observatory/issues/new/choose)，并注意不要公开真实 IP。
 
-环境配置（含 Windows）、分支约定和各模块的改动要求见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+线上后端不在这个仓库，参与开发不需要后端权限或 key。环境配置（含 Windows）、分支约定和各模块的改动要求见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
 ## Star 趋势
 
@@ -193,7 +191,7 @@ npm test
 
 ## 联系与合作
 
-广告投放、数据合作或其他合作，请在 X 上联系 [@BlackSlience](https://x.com/BlackSlience)。问题反馈和功能建议请走 [Issues](https://github.com/BlackSlience-Reaper/egress-observatory/issues)。
+广告投放、数据合作或其他合作，请在 X 上联系 [@BlackSlience](https://x.com/BlackSlience)。问题反馈和功能建议请走 [Issues](https://github.com/BlackSlience-Reaper/egress-observatory/issues)；安全问题不要公开，请直接在 X 上私信。
 
 ## 赞助
 

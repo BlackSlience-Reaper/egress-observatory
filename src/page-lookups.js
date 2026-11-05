@@ -1,4 +1,4 @@
-import { API_BASE, PAGE_LOOKUP_BASE, PAGE_LOOKUP_CLOUD } from '../config.js?v=cloud2';
+import { API_BASE, PAGE_LOOKUP_BASE } from '../config.js?v=cloud3';
 import { sameIP } from './util.js';
 
 const reports = new Map();
@@ -22,7 +22,7 @@ export async function lookupPage(provider, ip, signal, progress = () => {}) {
   const cacheMs = provider === 'sources' && Object.values(cached?.sources || {}).some(row => row.status !== 'ok') ? 60000 : 600000;
   if (cached && Date.now() - cached.time < cacheMs) return cached;
   const relay = { url: `${API_BASE}/v1/page/${provider}?ip=${encodeURIComponent(ip)}`, method: 'GET', timeout: 145000 };
-  const local = PAGE_LOOKUP_BASE !== PAGE_LOOKUP_CLOUD;
+  const local = Boolean(PAGE_LOOKUP_BASE);
   const routes = local
     ? [{ url: `${PAGE_LOOKUP_BASE}/lookup/${provider}`, method: 'POST', timeout: 110000 }, { ...relay, timeout: 90000 }, { ...relay, timeout: 25000 }]
     : [relay, { ...relay, timeout: 65000 }, { ...relay, timeout: 25000 }];
