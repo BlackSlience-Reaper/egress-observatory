@@ -21,6 +21,7 @@ const HOME = {
   flags: { vpn: false, proxy: false, tor: false, hosting: false, relay: false, abuser: false, crawler: false, mobile: false, bogon: false },
   hostname: ip => `cpe-${ip.replace(/[.:]/g, '-')}.dyn.broadband.example`,
   extras: {
+    proxycheck: { devices: { address: 1, subnet: 30 } },
     abuseipdb: { risk: 0, reports: 0 },
     ipqs: { risk: 6, connectionType: 'Residential', abuseVelocity: 'none', activeVpn: false, activeTor: false },
     ipinfo: { asnType: 'isp', anycast: false, resProxy: false, satellite: false },
@@ -44,6 +45,7 @@ const CLOUD = {
   flags: { vpn: false, proxy: true, tor: false, hosting: true, relay: false, abuser: true, crawler: false, mobile: false, bogon: false },
   hostname: ip => `vps-${ip.replace(/[.:]/g, '-')}.cloud.example`,
   extras: {
+    proxycheck: { devices: { address: 10, subnet: 1520 } },
     abuseipdb: { risk: 86, reports: 142, lastReported: daysAgo(2), block: { prefix: '198.51.100.0/24', reported: 18, maxScore: 100 } },
     ipqs: { risk: 90, connectionType: 'Data Center', abuseVelocity: 'high', activeVpn: false, activeTor: false },
     ipinfo: { asnType: 'hosting', anycast: false, resProxy: false, satellite: false },
