@@ -11,10 +11,10 @@ import { SOURCES, runSource } from './sources.js?v=3.6';
 import { setupOwnKeys } from './own-keys.js?v=3';
 import { DNSBLS, checkDNSBL, CIDR_LISTS, checkCIDRList, asnAbuseDensity } from './blocklists.js';
 import { fetchASN, inferASN, detectLease } from './asn.js?v=4.3';
-import { detectEgress, summarizeEgress, probeWebRTC, probeDNS, classifyDNS, probeTCP, probeEnvironment, probeIPv6, classifyIPv6, traceProbe } from './probes.js?v=3';
+import { detectEgress, summarizeEgress, probeWebRTC, probeDNS, classifyDNS, probeTCP, probeEnvironment, probeIPv6, classifyIPv6, traceProbe } from './probes.js?v=4';
 import { runTurnstile, runRecaptcha } from './captcha.js?v=4.2';
-import { score } from './score.js?v=5.0';
-import * as view from './render.js?v=4.30';
+import { score } from './score.js?v=5.1';
+import * as view from './render.js?v=4.31';
 
 const $ = id => document.getElementById(id);
 // In mock mode only documentation addresses can be checked, so real ones never meet fixture answers.

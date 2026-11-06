@@ -126,39 +126,44 @@ export async function probeDNS(signal) {
 
 /**
  * Classify resolvers against the egress location.
- * With split routing (a domestic site sees a different address than foreign ones), rule-based clients resolve every
- * domain that no rule names through the domestic DNS first, to match GEOIP rules. The probe uses random domains, so
- * it always lands there; sites in the proxy rules are normally resolved on the proxy side. Those resolvers are 'split',
- * not 'leak-cn'. A resolver in mainland China is never a harmless public one when the egress is elsewhere.
+ * With split routing (a domestic site sees a different address than foreign ones), rule-based clients resolve domains
+ * that no rule names through the domestic DNS first, to match GEOIP rules, and the proxy resolves them again remotely.
+ * HTTP split routing alone does not show that: a SOCKS setup that resolves locally also lets domestic sites go direct.
+ * So mainland resolvers count as 'split' only when the same probe domains also reached a resolver on the proxy side
+ * (the egress's network or country); otherwise they stay a leak. A mainland resolver is never a harmless public one.
  */
 export function classifyDNS(raw, { country, asn }, egress = null) {
   if (!raw || raw.status !== 'ok') return raw;
   const splitRouting = Boolean(egress?.domesticDiffers);
   const home = egress?.domesticCountry || 'CN';
-  const kinds = raw.resolvers.map(resolver => {
+  const isHome = place => Boolean(place) && (place === home || place === 'CN');
+  const base = raw.resolvers.map(resolver => {
     let kind;
     if (asn && resolver.asn === asn) kind = 'own';
     else if (country && resolver.country === country) kind = 'same';
-    else if (splitRouting && resolver.country && (resolver.country === home || resolver.country === 'CN')) kind = 'split';
     else if (resolver.country === 'CN' && country !== 'CN') kind = 'leak-cn';
     else if (PUBLIC_RESOLVER_ASNS.has(resolver.asn) || /cloudflare|google|quad9|opendns|nextdns|adguard/i.test(resolver.org || '')) kind = 'public';
     else kind = 'leak';
     return { ...resolver, kind };
   });
+  const remote = base.filter(item => item.kind === 'own' || item.kind === 'same');
+  const splitDNS = splitRouting && remote.length > 0;
+  const kinds = base.map(item => (splitDNS && (item.kind === 'leak-cn' || item.kind === 'leak') && isHome(item.country) ? { ...item, kind: 'split' } : item));
   const order = ['own', 'same', 'public', 'split', 'leak', 'leak-cn'];
   const verdict = country ? kinds.reduce((worst, item) => order.indexOf(item.kind) > order.indexOf(worst) ? item.kind : worst, 'own') : null;
   const countries = [...new Set(kinds.map(item => item.country).filter(Boolean))];
   const splitCountries = [...new Set(kinds.filter(item => item.kind === 'split').map(item => item.country))];
+  const noRemote = splitRouting && !splitDNS ? '；虽然国内外分流生效，但代理端没有解析测试域名，经代理的网站也在本地解析' : '';
   const summary = {
     own: '解析器属于出口同一网络', same: `解析器与出口同在 ${country}`, public: `公共 DNS 在 ${countries.join('/')} 解析，出口在 ${country}`,
-    split: `分流规则生效：随机测试域名由 ${splitCountries.join('/')} 的 DNS 解析。没被代理规则列出的域名会先在本地解析；列入代理规则的网站通常在代理端解析，不受影响`,
-    leak: `解析器位于 ${countries.join('/')}，与出口 ${country} 不符`, 'leak-cn': '解析请求从中国大陆发出，暴露真实位置',
+    split: `分流规则生效：测试域名先经 ${splitCountries.join('/')} 的本地 DNS 解析（用于匹配分流规则），代理端也解析了同一批域名，说明经代理的连接在远端解析。没被代理规则列出的域名都会先经过本地 DNS`,
+    leak: `解析器位于 ${countries.join('/')}，与出口 ${country} 不符${noRemote}`, 'leak-cn': `解析请求从中国大陆发出，暴露真实位置${noRemote}`,
   }[verdict] || '';
   const ecsLeak = Boolean(raw.ecs?.country && country && raw.ecs.country !== country);
-  // Under split routing the domestic resolver forwarding the visitor's own subnet is the same rule-matching path.
-  const ecsSplit = ecsLeak && splitRouting && (raw.ecs.country === home || raw.ecs.country === 'CN');
+  // The domestic resolver forwarding the visitor's own subnet is the same rule-matching path, once remote resolution is shown.
+  const ecsSplit = ecsLeak && splitDNS && isHome(raw.ecs.country);
   return {
-    ...raw, resolvers: kinds, verdict, summary, splitRouting, ecsLeak, ecsSplit,
+    ...raw, resolvers: kinds, verdict, summary, splitRouting, splitDNS, ecsLeak, ecsSplit,
     ecsSummary: ecsLeak ? `EDNS 客户端子网 ${raw.ecs.subnet} 位于 ${raw.ecs.country}${ecsSplit ? '，来自分流时的本地解析' : ''}` : null,
   };
 }

@@ -648,7 +648,11 @@ export function score(evidence) {
   const typeShare = value => typeMix.filter(item => item.value === value).reduce((sum, item) => sum + item.share, 0);
   const hostE = typeShare('hosting'); const businessE = typeShare('business');
   const homeE = typeShare('residential'); const mobileE = typeShare('mobile');
-  const anonTop = anonFlags.vpn.E >= anonFlags.proxy.E ? anonFlags.vpn : anonFlags.proxy;
+  // VPN and proxy are each discounted by their own doubt before the stronger is taken, so a directly observed proxy keeps
+  // its full weight next to a database-only VPN label.
+  const anonTop = [anonFlags.vpn, anonFlags.proxy]
+    .map(t => ({ t, doubt: labelDoubt(t), E: t.E * (labelDoubt(t)?.k ?? 1) }))
+    .sort((a, b) => b.E - a.E || Boolean(a.doubt) - Boolean(b.doubt))[0];
   const geoSplitE = countries.length > 1 ? clamp((0.85 - countrySupport) / 0.35, 0, 1) : 0;
   const broadcastE = native === false ? 1 - nativeShare : 0;
   const leaseE = lease?.leased || lease?.possible ? clamp(lease.confidence / 0.7, 0, 1) : 0;
@@ -673,7 +677,7 @@ export function score(evidence) {
 
   /** Signals several scenarios share; each scenario passes its own weight. Doubts mark "?" exactly as in the IP score. */
   const signals = (hit, gate) => ({
-    anon: pts => hit('VPN / 代理标记', pts * anonAny, anonTop.yes ? voteText(anonTop) : '', [labelDoubt(anonTop)]),
+    anon: pts => hit('VPN / 代理标记', pts * anonTop.t.E, anonTop.t.yes ? voteText(anonTop.t) : '', [anonTop.doubt]),
     hosting: pts => hit('机房 IP', pts * hostE, `IP 类型中机房占 ${Math.round(hostE * 100)}%`, [typeDoubt, labelDoubt(hosting)]),
     business: pts => hit('商业线路', pts * businessE, `IP 类型中商业宽带占 ${Math.round(businessE * 100)}%`, [typeDoubt]),
     broadcast: pts => hit('广播 IP', pts * broadcastE, `注册地 ${regCountry}，定位 ${country}`, [nativeDoubt]),

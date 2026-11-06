@@ -2,7 +2,7 @@
 import { esc, countryName, maskIP, maskText, formatOffset, zoneOffset } from './util.js?v=4.1';
 import { SOURCES } from './sources.js?v=3.6';
 import { DNSBLS, CIDR_LISTS } from './blocklists.js';
-import { CATEGORIES, TYPE_LABEL, UNSURE } from './score.js?v=5.0';
+import { CATEGORIES, TYPE_LABEL, UNSURE } from './score.js?v=5.1';
 import { captchaConfig } from './captcha.js';
 import { mock } from './mock.js?v=2';
 import { PAGE_PROVIDERS } from './page-providers.js?v=1';
@@ -287,8 +287,10 @@ function scoreGroups(run, result) {
   }
   const liveIssues = result.categories.find(category => category.id === 'live').items;
   const livePlus = result.bonus.items.filter(item => item.live);
+  const plus = liveBonusOf(result);
   const live = group('连接实测', signed(result.liveDelta), result.liveDelta < 0 ? 'neg' : result.liveDelta > 0 ? 'pos' : '',
-    [...liveIssues.slice(0, 4).map(item => scoreLine(item)), ...livePlus.map(item => scoreLine(item, true))], '没有扣分项');
+    [...liveIssues.slice(0, 4).map(item => scoreLine(item)), ...livePlus.map(item => scoreLine(item, true)),
+      plus.capped ? `<li class="clean muted small">${esc(cappedNote(plus, result.bonus.cap))}</li>` : ''], '没有扣分项');
   return `<div class="score-groups">${ip}${live}</div>`;
 }
 
@@ -567,14 +569,21 @@ export function renderASN(run, result) {
 
 const breakdownLine = (item, plus = false) => `<li${item.unsure ? ' class="unsure"' : ''}><b>${plus ? '+' : '−'}${fmt(item.pts)}</b><span>${esc(item.label)}${item.unsure ? QMARK : ''}</span><small>${ipText(item.detail || '')}${item.unsure ? `<span class="why">? ${esc(item.why)}</span>` : ''}</small></li>`;
 
-function categoryBlock(category, plusItems = []) {
-  const plusTotal = plusItems.reduce((sum, item) => sum + item.pts, 0);
+/** Live bonuses share the bonus cap with the IP's own: what was earned, and what actually counts. */
+const liveBonusOf = result => {
+  const raw = result.bonus.items.filter(item => item.live).reduce((sum, item) => sum + item.pts, 0);
+  return { raw, counted: result.bonus.live ?? 0, capped: raw - (result.bonus.live ?? 0) > 0.05 };
+};
+const cappedNote = (live, cap) => `实测加分 +${fmt(live.raw)} 与 IP 本身的加分共用 ${cap} 分上限，计入 +${fmt(live.counted)}`;
+
+function categoryBlock(category, plusItems = [], plus = null, note = '') {
   return `
     <div class="cat">
-      <div class="cat-head"><span>${esc(category.label)}</span><span class="cat-pts ${category.penalty ? 'neg' : ''}">${plusTotal ? `<em class="pos">+${fmt(plusTotal)}</em> ` : ''}${category.penalty ? `−${Math.round(category.penalty)}` : '0'} <small>/ 上限 ${category.cap}</small></span></div>
+      <div class="cat-head"><span>${esc(category.label)}</span><span class="cat-pts ${category.penalty ? 'neg' : ''}">${plus?.counted ? `<em class="pos">+${fmt(plus.counted)}</em> ` : ''}${category.penalty ? `−${Math.round(category.penalty)}` : '0'} <small>/ 上限 ${category.cap}</small></span></div>
       <div class="bar"><i style="width:${Math.min(100, category.penalty / category.cap * 100)}%"></i></div>
       ${category.items.length || plusItems.length ? `<ul>${plusItems.map(item => breakdownLine(item, true)).join('')}${category.items.map(item => breakdownLine(item)).join('')}</ul>` : '<p class="muted small">无扣分</p>'}
       ${category.raw > category.cap ? `<p class="muted small">原始扣分 ${category.raw}，按上限封顶。</p>` : ''}
+      ${note ? `<p class="muted small">${esc(note)}。</p>` : ''}
     </div>`;
 }
 
@@ -605,7 +614,7 @@ export function renderBreakdown(run, result) {
     + bonusBlock + trustBlock(result) + result.categories.filter(category => category.id !== 'live').map(category => categoryBlock(category)).join('');
   const liveCategory = result.categories.find(category => category.id === 'live');
   const liveSection = run.self ? `<h3 class="breakdown-section">连接实测 <b class="${result.liveDelta < 0 ? 'neg' : result.liveDelta > 0 ? 'pos' : ''}">${signed(result.liveDelta)}</b> <small>你当前的浏览器和网络路径，换节点或设备会变</small></h3>`
-    + categoryBlock({ ...liveCategory, label: '实测项目' }, b.items.filter(item => item.live)) : '';
+    + categoryBlock({ ...liveCategory, label: '实测项目' }, b.items.filter(item => item.live), liveBonusOf(result), liveBonusOf(result).capped ? cappedNote(liveBonusOf(result), b.cap) : '') : '';
   $('breakdown').innerHTML = ipSection + liveSection + (result.notes.length ? `<div class="notes">${result.notes.map(item => `<p>${icon(item.level)}${esc(item.text)}</p>`).join('')}</div>` : '');
 }
 
