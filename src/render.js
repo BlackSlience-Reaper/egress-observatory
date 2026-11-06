@@ -1,10 +1,10 @@
 /** DOM rendering. All external text goes through esc(). */
 import { esc, countryName, maskIP, maskText, formatOffset, zoneOffset } from './util.js?v=4.1';
-import { SOURCES } from './sources.js?v=3.5';
+import { SOURCES } from './sources.js?v=3.6';
 import { DNSBLS, CIDR_LISTS } from './blocklists.js';
-import { CATEGORIES, TYPE_LABEL } from './score.js?v=4.9';
+import { CATEGORIES, TYPE_LABEL, UNSURE } from './score.js?v=5.0';
 import { captchaConfig } from './captcha.js';
-import { mock } from './mock.js?v=1';
+import { mock } from './mock.js?v=2';
 import { PAGE_PROVIDERS } from './page-providers.js?v=1';
 import { helperBrowser, helperStore } from './helper-stores.js?v=2';
 
@@ -86,7 +86,6 @@ const fmt = value => (Math.round(value * 10) / 10).toString();
 const TONES = { residential: 'good', isp: 'good', native: 'good', mobile: 'teal', business: 'sky', hosting: 'warn', cdn: 'orange', broadcast: 'warn', leased: 'warn', transit: 'violet', education: 'slate', government: 'slate', bad: 'bad' };
 const IP_TYPE_LABEL = { residential: '家宽', mobile: '移动网络', business: '商业宽带', hosting: '机房', education: '教育网' };
 const ASN_LABEL = { isp: 'ISP', mobile: '移动运营商', hosting: '机房 / 云', cdn: 'CDN', transit: '骨干网', business: '企业网', education: '教育网', government: '政府网' };
-const UNSURE = 0.6;
 
 /**
  * parts: [{ value, share }] sorted desc. Shows up to two parts; the gradient sits at their split.
@@ -269,20 +268,41 @@ function renderRing(result, g) {
   box.setAttribute('aria-label', `综合分 ${result.score}，${g.letter} 级`);
 }
 
+// A score item resting on an uncertain label or a likely misjudgement: "?" beside it, the reason in its tooltip.
+const QMARK = '<i class="qmark" aria-label="证据不足或可能误判，按比例计">?</i>';
+const itemTip = item => [item.detail, item.unsure ? `? ${item.why}` : ''].filter(Boolean).join('\n');
+const scoreLine = (item, plus = false) => `<li class="${plus ? 'plus' : ''}${item.unsure ? ' unsure' : ''}" tabindex="0" data-tip="${esc(itemTip(item))}"><span class="dot"></span><b>${plus ? '+' : '−'}${fmt(item.pts)}</b> ${esc(item.label)}${item.unsure ? QMARK : ''}</li>`;
+const signed = value => (value > 0 ? `+${value}` : value < 0 ? `−${-value}` : '±0');
+
+/** What the IP itself scores and what this connection adds or costs, side by side. */
+function scoreGroups(run, result) {
+  const byPts = (a, b) => b.pts - a.pts;
+  const ipIssues = result.categories.filter(category => category.id !== 'live').flatMap(category => category.items).sort(byPts);
+  const ipPlus = result.bonus.items.filter(item => !item.live);
+  const group = (title, value, tone, lines, empty) => `<section class="score-group"><h3>${title} <b class="${tone}">${value}</b></h3>
+    <ul class="deductions">${lines.join('') || `<li class="clean"><b>0</b> ${empty}</li>`}</ul></section>`;
+  const ip = group('IP 本身', result.ipScore, '', [...ipIssues.slice(0, 4).map(item => scoreLine(item)), ...ipPlus.slice(0, 2).map(item => scoreLine(item, true))], '没有扣分项');
+  if (!run.self) {
+    return `<div class="score-groups">${ip}</div><p class="score-split muted">查询的不是本机出口，只计算 IP 信誉，连接实测不适用。<button type="button" class="link-btn" data-self-check>改测本机出口 →</button></p>`;
+  }
+  const liveIssues = result.categories.find(category => category.id === 'live').items;
+  const livePlus = result.bonus.items.filter(item => item.live);
+  const live = group('连接实测', signed(result.liveDelta), result.liveDelta < 0 ? 'neg' : result.liveDelta > 0 ? 'pos' : '',
+    [...liveIssues.slice(0, 4).map(item => scoreLine(item)), ...livePlus.map(item => scoreLine(item, true))], '没有扣分项');
+  return `<div class="score-groups">${ip}${live}</div>`;
+}
+
 export function renderHero(run, result, view) {
   knownIPs = [run.ip];
   const g = result.grade;
   const pending = result.confidence.pending;
-  const issues = result.categories.flatMap(category => category.items).sort((a, b) => b.pts - a.pts).slice(0, 5);
   renderRing(result, g);
   $('verdict').innerHTML = `
     <div class="verdict-head"><span class="verdict-label tone-${g.tone}">${esc(g.label)}</span>
       <span class="confidence c-${result.confidence.level}" tabindex="0" data-tip="评分可信程度&#10;成功来源 ${result.confidence.sources} 个；匿名类字段 ${result.confidence.anonSources} 个来源">置信度${{ high: '高', medium: '中', low: '低' }[result.confidence.level]}</span>
       ${pending ? `<span class="pending-note">${icon('pending')}正在等待 ${pending} 个第三方来源返回，分数可能还会变化</span>` : ''}</div>
     <p class="verdict-text">${esc(result.verdict)}</p>
-    ${run.self ? `<p class="score-split"><span>IP 信誉 <b>${result.ipScore}</b></span><span>连接实测 <b class="${result.liveDelta < 0 ? 'neg' : ''}">${result.liveDelta === 0 ? '±0' : result.liveDelta}</b></span><span>综合 <b>${result.score}</b></span></p>`
-      : '<p class="score-split muted">查询的不是本机出口，只计算 IP 信誉，连接实测不适用。<button type="button" class="link-btn" data-self-check>改测本机出口 →</button></p>'}
-    <ul class="deductions">${issues.map(item => `<li tabindex="0" data-tip="${esc(item.detail || '')}"><span class="dot"></span><b>−${fmt(item.pts)}</b> ${esc(item.label)}</li>`).join('')}${result.bonus.items.slice(0, 3).map(item => `<li class="plus" tabindex="0" data-tip="${esc(item.detail || '')}"><span class="dot"></span><b>+${fmt(item.pts)}</b> ${esc(item.label)}</li>`).join('')}${!issues.length && !result.bonus.items.length ? '<li class="clean"><b>0</b> 没有扣分项</li>' : ''}</ul>`;
+    ${scoreGroups(run, result)}`;
   const s = result.summary;
   const orWait = (has, html) => has || !pending ? html : WAIT;
   $('addr').innerHTML = `
@@ -433,14 +453,14 @@ export function renderUses(result) {
     const tip = [
       `${name} ${use.score} 分 · ${USE_LEVEL[use.level]}`,
       use.gate ? `封顶：${use.gate}` : '',
-      ...use.items.map(item => `−${fmt(item.pts)} ${item.label}${item.detail ? `：${item.detail}` : ''}`),
+      ...use.items.map(item => `−${fmt(item.pts)} ${item.label}${item.unsure ? ' ?' : ''}${item.detail ? `：${item.detail}` : ''}${item.unsure ? `；? ${item.why}` : ''}`),
       use.items.length ? '' : use.why,
       use.note,
       '100 起算；≥ 75 可以，50–74 看情况，< 50 不建议',
     ].filter(Boolean).join('\n');
     const top = use.items.slice(0, 2);
     const body = use.gate ? `<span class="use-why">${esc(use.gate)}</span>`
-      : top.length ? `<ul class="use-items">${top.map(item => `<li><b>−${fmt(item.pts)}</b><span>${esc(item.label)}</span></li>`).join('')}</ul>`
+      : top.length ? `<ul class="use-items">${top.map(item => `<li><b>−${fmt(item.pts)}</b><span>${esc(item.label)}${item.unsure ? QMARK : ''}</span></li>`).join('')}</ul>`
         : `<span class="use-why">${esc(use.why)}</span>`;
     return `<div class="use lv-${use.level}" tabindex="0" data-tip="${esc(tip)}">
       <div class="use-head"><span class="use-name">${esc(name)}</span><span class="use-badge"><strong>${use.score}</strong>${esc(USE_LEVEL[use.level])}</span></div>
@@ -462,7 +482,7 @@ export function renderLive(run, result, egress, view) {
   const w = p.webrtc;
   tiles.push({ label: 'WebRTC', level: lv('webrtc'), value: !w ? '检测中' : w.status !== 'ok' ? '失败' : !w.supported ? (mock ? '模拟跳过' : '已禁用') : w.leak ? `泄漏 ${w.leakIPs.map(ip => ipSpan(ip, view.masked)).join(' ')}` : w.srflx.length ? '无泄漏' : 'UDP 不通', sub: w?.status === 'ok' ? esc(w.leak ? '' : w.srflx.length ? 'UDP 出口一致' : '') : '', pts: itemPts(result, 'webrtc'), title: w?.summary });
   const d = p.dnsClassified;
-  const dnsTitle = { own: '同网解析', same: '同一国家', public: '公共 DNS 跨区', leak: 'DNS 泄漏', 'leak-cn': '真实位置泄漏' };
+  const dnsTitle = { own: '同网解析', same: '同一国家', public: '公共 DNS 跨区', split: '分流解析', leak: 'DNS 泄漏', 'leak-cn': '真实位置泄漏' };
   tiles.push({ label: 'DNS 解析', level: lv('dns'), value: !d ? '检测中' : d.status !== 'ok' ? '失败' : `${esc(dnsTitle[d.verdict] || '—')}`, sub: d?.status === 'ok' ? groupResolvers(d.resolvers).slice(0, 2).map(group => `${flag(group.country)}${ipText(group.org || group.ip)}${group.count > 1 ? ` ×${group.count}` : ''}`).join(' ') : esc(d?.error || ''), pts: itemPts(result, 'dns'), title: [d?.summary, d?.ecsSummary].filter(Boolean).join('；') });
   const t = p.tcp;
   tiles.push({ label: 'TCP 连接', level: lv('tcp'), value: !t ? '检测中' : t.status !== 'ok' ? '失败' : t.relay ? '像代理转发' : t.osMismatch ? '系统不一致' : '直连特征', sub: t?.status === 'ok' ? `SYN ≈ ${esc(t.tcpOS)}${t.uaOS ? ` · UA ${esc(t.uaOS)}` : ''}` : esc(t?.error || ''), pts: itemPts(result, 'tcp'), title: t?.summary });
@@ -545,21 +565,48 @@ export function renderASN(run, result) {
 
 // ---------- breakdown ----------
 
+const breakdownLine = (item, plus = false) => `<li${item.unsure ? ' class="unsure"' : ''}><b>${plus ? '+' : '−'}${fmt(item.pts)}</b><span>${esc(item.label)}${item.unsure ? QMARK : ''}</span><small>${ipText(item.detail || '')}${item.unsure ? `<span class="why">? ${esc(item.why)}</span>` : ''}</small></li>`;
+
+function categoryBlock(category, plusItems = []) {
+  const plusTotal = plusItems.reduce((sum, item) => sum + item.pts, 0);
+  return `
+    <div class="cat">
+      <div class="cat-head"><span>${esc(category.label)}</span><span class="cat-pts ${category.penalty ? 'neg' : ''}">${plusTotal ? `<em class="pos">+${fmt(plusTotal)}</em> ` : ''}${category.penalty ? `−${Math.round(category.penalty)}` : '0'} <small>/ 上限 ${category.cap}</small></span></div>
+      <div class="bar"><i style="width:${Math.min(100, category.penalty / category.cap * 100)}%"></i></div>
+      ${category.items.length || plusItems.length ? `<ul>${plusItems.map(item => breakdownLine(item, true)).join('')}${category.items.map(item => breakdownLine(item)).join('')}</ul>` : '<p class="muted small">无扣分</p>'}
+      ${category.raw > category.cap ? `<p class="muted small">原始扣分 ${category.raw}，按上限封顶。</p>` : ''}
+    </div>`;
+}
+
+/** How much the announcing ASN vouches for the IP: it discounts the IP's own database labels, never adds points. */
+function trustBlock(result) {
+  const t = result.asnTrust;
+  if (!t) return '';
+  const text = t.applied ? `${t.label || '该 ASN'} 信誉良好：IP 本身的代理、VPN、机房、风险分等数据库标记按 ${pct(1 - t.relief)} 计，并标 ?。`
+    : `${t.label || '该 ASN'} 的信誉不足以抵消 IP 本身的标记。`;
+  return `
+    <div class="cat cat-trust">
+      <div class="cat-head"><span>ASN 信誉缓冲</span><span class="cat-pts ${t.applied ? 'pos' : ''}">${t.applied ? `减轻 ${pct(t.relief)}` : '不减轻'}</span></div>
+      <p class="small">${esc(text)}</p>
+      <p class="muted small">依据：${esc(t.reasons.join('、'))}</p>
+    </div>`;
+}
+
 export function renderBreakdown(run, result) {
   const b = result.bonus;
+  const ipPlus = b.items.filter(item => !item.live);
   const bonusBlock = `
     <div class="cat cat-bonus">
-      <div class="cat-head"><span>安全加分 <small class="muted">基准 ${result.base}</small></span><span class="cat-pts pos">${b.total ? `+${fmt(b.total)}` : '0'} <small>/ 上限 ${b.cap}</small></span></div>
-      <div class="bar bar-plus"><i style="width:${Math.min(100, b.total / b.cap * 100)}%"></i></div>
-      ${b.items.length ? `<ul>${b.items.filter(item => !item.live || run.self).map(item => `<li><b>+${fmt(item.pts)}</b><span>${esc(item.label)}</span><small>${ipText(item.detail || '')}</small></li>`).join('')}</ul>` : '<p class="muted small">没有足够的正面证据：干净但缺少多源佐证的 IP 停在基准分。</p>'}
+      <div class="cat-head"><span>安全加分 <small class="muted">基准 ${result.base}</small></span><span class="cat-pts pos">${b.ip ? `+${fmt(b.ip)}` : '0'} <small>/ 上限 ${b.cap}</small></span></div>
+      <div class="bar bar-plus"><i style="width:${Math.min(100, b.ip / b.cap * 100)}%"></i></div>
+      ${ipPlus.length ? `<ul>${ipPlus.map(item => breakdownLine(item, true)).join('')}</ul>` : '<p class="muted small">没有足够的正面证据：干净但缺少多源佐证的 IP 停在基准分。</p>'}
     </div>`;
-  $('breakdown').innerHTML = bonusBlock + result.categories.filter(category => category.id !== 'live' || run.self).map(category => `
-    <div class="cat">
-      <div class="cat-head"><span>${esc(category.label)}</span><span class="cat-pts ${category.penalty ? 'neg' : ''}">${category.penalty ? `−${Math.round(category.penalty)}` : '0'} <small>/ 上限 ${category.cap}</small></span></div>
-      <div class="bar"><i style="width:${Math.min(100, category.penalty / category.cap * 100)}%"></i></div>
-      ${category.items.length ? `<ul>${category.items.map(item => `<li><b>−${item.pts}</b><span>${esc(item.label)}</span><small>${ipText(item.detail || '')}</small></li>`).join('')}</ul>` : '<p class="muted small">无扣分</p>'}
-      ${category.raw > category.cap ? `<p class="muted small">原始扣分 ${category.raw}，按上限封顶。</p>` : ''}
-    </div>`).join('') + (result.notes.length ? `<div class="notes">${result.notes.map(item => `<p>${icon(item.level)}${esc(item.text)}</p>`).join('')}</div>` : '');
+  const ipSection = `<h3 class="breakdown-section">IP 本身 <b>${result.ipScore}</b> <small>只看这个地址的证据，查询别人的 IP 时也一样</small></h3>`
+    + bonusBlock + trustBlock(result) + result.categories.filter(category => category.id !== 'live').map(category => categoryBlock(category)).join('');
+  const liveCategory = result.categories.find(category => category.id === 'live');
+  const liveSection = run.self ? `<h3 class="breakdown-section">连接实测 <b class="${result.liveDelta < 0 ? 'neg' : result.liveDelta > 0 ? 'pos' : ''}">${signed(result.liveDelta)}</b> <small>你当前的浏览器和网络路径，换节点或设备会变</small></h3>`
+    + categoryBlock({ ...liveCategory, label: '实测项目' }, b.items.filter(item => item.live)) : '';
+  $('breakdown').innerHTML = ipSection + liveSection + (result.notes.length ? `<div class="notes">${result.notes.map(item => `<p>${icon(item.level)}${esc(item.text)}</p>`).join('')}</div>` : '');
 }
 
 // ---------- multi-source IP type matrix ----------

@@ -6,4 +6,4 @@ const isLocal = ['127.0.0.1', 'localhost'].includes(location.hostname);
 const enabled = isLocal && new URLSearchParams(location.search).get('mock') === '1';
 
 // Top-level await: main.js starts its first request only after window.fetch has been replaced.
-export const mock = enabled ? (await import('./mock-fixtures.js?v=1')).install() : null;
+export const mock = enabled ? (await import('./mock-fixtures.js?v=2')).install() : null;
