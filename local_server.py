@@ -8,6 +8,8 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from provider_pages import launch_options, lookup_proxy, lookup_sources
+
 ROOT = Path(__file__).resolve().parent
 LOCAL = "http://127.0.0.1:4187"
 ORIGINS = {LOCAL, "http://localhost:4187", "https://blackslience-reaper.github.io"}
@@ -17,14 +19,10 @@ CACHES = {name: {} for name in LOCKS}
 
 def lookup(ip, provider):
     if provider == "sources":
-        from provider_pages import lookup_sources
         return lookup_sources(ip)
     from playwright.sync_api import sync_playwright
     with sync_playwright() as api:
-        options = {"headless": True}
-        if not Path(api.chromium.executable_path).exists():
-            options["channel"] = "chrome"
-        browser = api.chromium.launch(**options)
+        browser = api.chromium.launch(**launch_options(api))
         page = None
         try:
             page = browser.new_page(locale="zh-CN")
@@ -161,6 +159,11 @@ class Handler(SimpleHTTPRequestHandler):
 
 if __name__ == "__main__":
     os.chdir(ROOT)
+    try:
+        proxy = lookup_proxy()
+    except ValueError as exc:
+        raise SystemExit(str(exc))
+    print("网页查询经代理 " + proxy["server"] if proxy else "网页查询使用本机出口", flush=True)
     helper = ThreadingHTTPServer(("127.0.0.1",4188), Handler)
     try:
         site = ThreadingHTTPServer(("127.0.0.1",4187), Handler)
