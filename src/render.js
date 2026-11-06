@@ -25,6 +25,9 @@ const storeLink = store => {
 /** Offer this browser's store listing first and keep the offline ZIP and its steps. */
 export function renderHelperDownload() {
   const store = helperStore();
+  // The offline ZIP is the unsigned Chromium package, which Firefox cannot keep installed.
+  const firefox = helperBrowser() === 'firefox';
+  const chromiumOnly = '下面的离线包只适用于 Chrome、Edge 等 Chromium 浏览器。';
   const note = $('browser-helper-store');
   if(store) {
     const download = $('browser-helper-download');
@@ -34,10 +37,10 @@ export function renderHelperDownload() {
     install.href='#browser-helper-install';install.textContent='安装步骤';
     install.addEventListener('click',()=>{$('browser-helper-install').open=true;});
     download.before(links);
-    download.textContent=download.textContent.replace('Chrome 插件','离线安装');
+    if(!firefox)download.textContent=download.textContent.replace('Chrome 插件','离线安装');
     links.append(storeLink(store),' · ',download,' · ',install);
-    note.append('商店安装：从 ',storeLink(store),' 安装，之后由浏览器自动更新；需要立即更新时，在扩展管理页检查更新。');
-  } else if(helperBrowser() === 'firefox') note.textContent='Firefox 需从 Firefox 附加组件安装，上架前暂不可用；下面的离线包只适用于 Chrome、Edge 等 Chromium 浏览器。';
+    note.append('商店安装：从 ',storeLink(store),' 安装，之后由浏览器自动更新；需要立即更新时，在扩展管理页检查更新。'+(firefox ? chromiumOnly : ''));
+  } else if(firefox) note.textContent='Firefox 需从 Firefox 附加组件安装，上架前暂不可用；'+chromiumOnly;
   else return;
   note.hidden=false;
 }
