@@ -23,8 +23,9 @@ def lookup_proxy():
     value = os.environ.get("EGRESS_LOOKUP_PROXY", "").strip()
     if not value:
         return None
-    url = urlsplit(value if "://" in value else "http://" + value)
+    # Parse errors quote the whole netloc, credentials included; replace them with a fixed message.
     try:
+        url = urlsplit(value if "://" in value else "http://" + value)
         valid = url.scheme in {"http", "https", "socks5"} and url.hostname and url.port
     except ValueError:
         valid = False
