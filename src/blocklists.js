@@ -121,6 +121,9 @@ function intersecting(ranges, a, b) {
   return out;
 }
 
+/** Drop every downloaded list so the next check loads them again; mock mode calls it when the simulated exit changes. */
+export function forgetLists() { cache.clear(); }
+
 export function loadList(list, signal) {
   if (!cache.has(list.id)) {
     cache.set(list.id, getJSON(list.url, { signal, timeout: 25000, as: 'text', init: { cache: 'default' } })

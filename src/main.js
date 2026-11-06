@@ -9,12 +9,12 @@ import { lookupPage } from './page-lookups.js?v=7';
 import { getJSON, parseIP, isPublicIP, sameIP, maskIP, maskText } from './util.js?v=4.1';
 import { SOURCES, runSource } from './sources.js?v=3.7';
 import { setupOwnKeys } from './own-keys.js?v=4';
-import { DNSBLS, checkDNSBL, CIDR_LISTS, checkCIDRList, asnAbuseDensity } from './blocklists.js';
+import { DNSBLS, checkDNSBL, CIDR_LISTS, checkCIDRList, asnAbuseDensity, forgetLists } from './blocklists.js?v=2';
 import { fetchASN, inferASN, detectLease } from './asn.js?v=4.3';
 import { detectEgress, summarizeEgress, probeWebRTC, probeDNS, classifyDNS, probeTCP, probeEnvironment, probeIPv6, classifyIPv6, traceProbe } from './probes.js?v=5';
 import { runTurnstile, runRecaptcha } from './captcha.js?v=4.2';
 import { score } from './score.js?v=5.2';
-import * as view from './render.js?v=4.33';
+import * as view from './render.js?v=4.34';
 
 const $ = id => document.getElementById(id);
 // In mock mode only documentation addresses can be checked, so real ones never meet fixture answers.
@@ -29,6 +29,8 @@ $('types').addEventListener('click',event=>{
 const app = {
   masked: localStorage.getItem('egress-mask') === '1',
   egress: null, egressPromise: null, health: null, healthPromise: null, healthPending: false, healthAt: 0, run: null, frame: 0,
+  // Only the latest check and the latest exit detection may write their results.
+  runSeq: 0, egressSeq: 0,
 };
 
 // ---------- backend capabilities ----------
@@ -200,6 +202,7 @@ function rememberIP(ip) {
 async function startRun(input, fetchPages = true) {
   const parsed = parseIP(input);
   if (!parsed || !checkable(parsed.ip)) { $('status').textContent = mock ? '模拟模式只接受文档保留地址，例如 203.0.113.10。' : '请输入有效的公网 IPv4 或 IPv6 地址。'; return; }
+  const seq = ++app.runSeq;
   rememberIP(parsed.ip);
   const healthReady = refreshHealth(true);
   app.run?.controller.abort();
@@ -207,11 +210,14 @@ async function startRun(input, fetchPages = true) {
   const signal = controller.signal;
   let egress = app.egress || await Promise.race([app.egressPromise, new Promise(resolve => setTimeout(resolve, 4000))]) || app.egress;
   // Mock mode treats whatever address is checked as this browser's exit (unless &self=0): the fixtures switch to it,
-  // so the live checks run on fixture answers for it too.
+  // so the live checks and the lists (downloaded again) answer for it too.
   if (mock?.asSelf && !egress?.ips?.some(ip => sameIP(ip, parsed.ip))) {
     mock.useExit(parsed.ip);
+    forgetLists();
     egress = await refreshEgress({ autoStart: false });
   }
+  // A newer check started while this one waited for the exit: it wins, this one stops here.
+  if (seq !== app.runSeq) return;
   const self = Boolean(egress?.ips?.some(ip => sameIP(ip, parsed.ip)));
   const run = {
     ip: parsed.ip, v: parsed.v, self, controller, healthReady, startedAt: Date.now(),
@@ -542,11 +548,14 @@ document.addEventListener('click', event => {
  */
 function refreshEgress({ autoStart }) {
   let started = false;
+  const token = ++app.egressSeq;
+  const latest = () => token === app.egressSeq;
   const button = $('self-check');
   button.disabled = true;
   app.egress = null;
   if (autoStart) $('status').textContent = '正在识别本机出口 IP…';
   app.egressPromise = detectEgress(undefined, results => {
+    if (!latest()) return;
     app.egress = { ...summarizeEgress(results), partial: true };
     if (autoStart && !started) {
       const first = app.egress.v4 || null;
@@ -554,6 +563,8 @@ function refreshEgress({ autoStart }) {
     }
     if (app.run) scheduleRender(); else view.renderEgress(app.egress, null, app);
   }, checkable).then(summary => {
+    // A newer detection replaced this one: its results are stale and must not overwrite the newer exit.
+    if (!latest()) return summary;
     app.egress = summary;
     button.disabled = false;
     if (autoStart && !started) {
