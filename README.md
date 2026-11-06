@@ -55,7 +55,7 @@ Egress 联合 20 多个 IP 数据库、16 个 DNS 黑名单、17 个威胁、代
 
 网页中的明确 VPN、代理、Tor、机房、中继、爬虫和滥用标记进入现有加权投票，明确的 0–100 风险分进入风险评分。IPSuper 的逐库风险矩阵也会自动补充这些字段；未支持和获取失败的格子不投票。IPQS、Scamalytics、AbuseIPDB 的具名风险分用于评分，其他条形百分比保留原意。官网、Chrome、IPSuper 和 IPOK 的同库结果合并，只保留一份来源权重，返回字段时立即重新计算总分和用途评分。
 
-## 浏览器扩展 v1.3.4（可选）
+## 浏览器扩展 v1.3.5（可选）
 
 不安装也能使用：网站默认在云端读取 IPSuper 的逐库类型、风险分和风险矩阵，供所有访客自动补全。
 
@@ -68,7 +68,7 @@ Egress 联合 20 多个 IP 数据库、16 个 DNS 黑名单、17 个威胁、代
 - Opera 加载项：Opera，待上架；也可借助 Opera 的“Install Chrome Extensions”扩展从 Chrome 网上应用店安装
 <!-- /helper-stores -->
 
-**离线安装**（访问不了 Chrome 网上应用店，或想先审查代码时）：[**下载 Chrome 扩展 v1.3.4（ZIP）**](https://blackslience-reaper.github.io/egress-observatory/downloads/egress-browser-helper-v1.3.4.zip)，在扩展管理页开启开发者模式后加载解压出的 `browser-helper` 文件夹，详见[安装说明](browser-helper/README.md)。离线包适用于 Chrome、Edge 等 Chromium 浏览器；Firefox 只能安装商店签名的版本。
+**离线安装**（访问不了 Chrome 网上应用店，或想先审查代码时）：[**下载 Chrome 扩展 v1.3.5（ZIP）**](https://blackslience-reaper.github.io/egress-observatory/downloads/egress-browser-helper-v1.3.5.zip)，在扩展管理页开启开发者模式后加载解压出的 `browser-helper` 文件夹，详见[安装说明](browser-helper/README.md)。离线包适用于 Chrome、Edge 等 Chromium 浏览器；Firefox 只能安装商店签名的版本。
 
 [扩展隐私政策](https://blackslience-reaper.github.io/egress-observatory/privacy.html)
 
