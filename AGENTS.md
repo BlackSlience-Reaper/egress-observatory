@@ -5,7 +5,7 @@
 ## 开始工作
 
 - 默认使用简体中文说明，代码和提交标题保留英文。先读 `CONTRIBUTING.md`，按任务读取相关领域文档。
-- 先检查 `git status`、当前分支和远程默认分支；保留已有修改和未跟踪文件。默认分支是 `master`，通过 PR squash 合并，合并会发布网站。
+- 先检查 `git status`、当前分支和远程默认分支；保留已有修改和未跟踪文件。默认分支是 `master`，通过 PR squash 合并；网站部署由维护者主动触发。
 - 分支使用 `Harukili/<issue>-<description>`；用户直接布置且没有 Issue 的工作可用 `Harukili/<description>`，PR 说明任务来源即可。
 - 开发任务使用 `$egress-change`；扩展打包与发布使用 `$egress-release`。入口在 `.agents/skills/`，完整流程和交接格式见 `docs/agent-workflow.md`。
 - 独立任务确实能并行时才委派，写清输入、输出和完成条件；共享分支的修改与合并由主 agent 负责。
@@ -46,6 +46,7 @@
 - GitHub Actions 默认只读，写权限按 job 分配。PR 标题、正文和代码均视为输入，禁止直接插入 shell；写权限工作流只执行可信默认分支代码。
 - OpenAI 审查固定使用工作流中的 `gpt-6-astra` / `medium`，只做静态审查；凭据只在审查 job 使用，发布 job 单独运行。只发布匹配当前 PR head 的报告。
 - 发布使用明确的 commit 和版本；自动化生成 draft Release，正式发布、商店提交和线上后端变更以当前任务的授权范围为准。
+- Pages 使用 `.github/workflows/deploy-page.yml`，仅保留 `workflow_dispatch`。只有用户主动要求运行部署时才触发；合并、push、PR 和定时任务均不部署，本次配置与普通开发的运行观察也不授权部署。
 
 ## Review guidelines
 

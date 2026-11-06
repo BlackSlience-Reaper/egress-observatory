@@ -2,7 +2,7 @@
 
 任务统一放在 [Issues](https://github.com/BlackSlience-Reaper/egress-observatory/issues)，通过 PR 完成。`master` 受保护，任何人（包括仓库管理员）都不能直接推送。
 
-**合并到 `master` 就等于发布**：GitHub Pages 从 `master` 根目录直接提供网站。
+网站使用手动部署：维护者在 [Deploy Pages](https://github.com/BlackSlience-Reaper/egress-observatory/actions/workflows/deploy-page.yml) 点击 **Run workflow**，选择 `master` 后发布该次选定的 commit。合并和 push 不触发部署；agent 只有在用户主动要求发布时才运行此入口。
 
 ## 工作流
 

@@ -147,7 +147,7 @@ python local_server.py
 
 | 组件 | 位置 | 上线方式 |
 | --- | --- | --- |
-| 网站 | 仓库根目录，GitHub Pages | 合并到 `master` 后自动发布 |
+| 网站 | 仓库根目录，GitHub Pages | 维护者手动运行 Deploy Pages，发布选定的 `master` commit |
 | 浏览器扩展 | `browser-helper/`，打包到 `downloads/` 与各浏览器商店 | 访客从商店或离线 ZIP 安装 |
 | 本机查询服务 | `local_server.py`、`provider_pages.py` | 只在本地运行 |
 | 线上后端 | 单独维护，不在这个仓库 | 由维护者部署；页面通过 `config.js` 里的公开地址调用 |
@@ -202,6 +202,8 @@ python local_server.py
 仓库规则统一维护在 [AGENTS.md](AGENTS.md)，Claude 和 Copilot 入口引用同一份规则。Codex 项目技能提供 `$egress-change`（开发、修复与交接）和 `$egress-release`（扩展打包与发布）；可直接在仓库内调用，示例和证据格式见 [Agent 工作流](docs/agent-workflow.md)。
 
 GitHub Actions 提供 PR 自动范围标签、Copilot 的 Python/Chromium 环境准备，以及 [扩展 draft Release](https://github.com/BlackSlience-Reaper/egress-observatory/actions/workflows/helper-release.yml) 入口。Dependabot 每周检查 Actions 与 Python 依赖。默认分支保留 PR、squash 历史和讨论解决规则，交付记录实际调用入口及观察结果。
+
+网站发布从 [Deploy Pages → Run workflow](https://github.com/BlackSlience-Reaper/egress-observatory/actions/workflows/deploy-page.yml) 手动运行，分支选择 `master`。合并和 push 均不触发网站部署。
 
 ## Star History
 

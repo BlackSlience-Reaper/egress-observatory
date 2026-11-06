@@ -52,6 +52,7 @@ Issue 写清目标、范围、实际入口、完成条件和依赖；直接来�
 - [PR Labels](https://github.com/BlackSlience-Reaper/egress-observatory/actions/workflows/pr-labels.yml)：按变更路径添加 area 与 documentation 标签；维护者也可输入当前或历史 PR 编号手动运行。只读取可信配置与 PR 文件列表。
 - [Copilot Setup Steps](https://github.com/BlackSlience-Reaper/egress-observatory/actions/workflows/copilot-setup-steps.yml)：从 Actions 的 Run workflow 或 `gh workflow run copilot-setup-steps.yml --ref master` 准备可运行环境。
 - [Prepare Helper Release](https://github.com/BlackSlience-Reaper/egress-observatory/actions/workflows/helper-release.yml)：从默认分支生成绑定 commit 的 draft Release、离线包、Chrome/Firefox 商店包和 SHA256SUMS。不会自动提交商店。
+- [Deploy Pages](https://github.com/BlackSlience-Reaper/egress-observatory/actions/workflows/deploy-page.yml)：仅由维护者主动点击 Run workflow，选择 `master` 后部署该次选定的 commit。用户也可明确要求 agent 运行部署；普通任务的合并与验收不触发此入口。
 - Dependabot 每周检查 GitHub Actions 和 Python 依赖，分组提交普通版本更新 PR；更新后仍需要说明实际入口的观察结果。
 - CodeQL、Dependabot alerts、secret scanning 和 push protection 在 GitHub Security 设置中管理。静态扫描用于定位缺陷，不作为功能可用的证明。
 
@@ -63,6 +64,8 @@ Issue 写清目标、范围、实际入口、完成条件和依赖；直接来�
 
 CodeQL 的请求体在 [codeql-default-setup.json](../.github/codeql-default-setup.json)，管理员使用 `gh api --method PATCH repos/BlackSlience-Reaper/egress-observatory/code-scanning/default-setup --input .github/codeql-default-setup.json` 应用。首次配置会建立实际扫描任务；运行入口和发现的缺陷在仓库 Security 页查看。
 
-`master` 合并会触发 Pages 发布。合并前记录实际入口证据和未观察范围；合并后从 Pages 部署记录与公开页面核实相关结果。需要回退时从最新 `master` 创建修复分支，对目标提交执行 `git revert <SHA>`，通过 PR 恢复，再观察页面；保留远程历史。
+Pages 的设置请求体在 [pages.json](../.github/pages.json)，管理员使用 `gh api --method PUT repos/BlackSlience-Reaper/egress-observatory/pages --input .github/pages.json` 将发布源设为 GitHub Actions。部署工作流仅监听 `workflow_dispatch`，没有 push、PR 或定时触发器。
+
+合并前记录实际入口证据和未观察范围；合并后网页继续使用上一次部署。维护者主动运行 Deploy Pages 后，再从部署记录与公开页面核实发布结果。需要回退时从最新 `master` 创建修复分支，对目标提交执行 `git revert <SHA>`，通过 PR 恢复，待维护者主动部署后再观察页面；保留远程历史。
 
 扩展 Release 草稿由维护者检查后发布。商店上传说明见 [STORE.md](../browser-helper/STORE.md)；GitHub 草稿、正式发布与商店上架是各自独立的状态。
