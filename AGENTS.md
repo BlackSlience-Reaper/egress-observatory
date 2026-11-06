@@ -46,6 +46,7 @@
 - GitHub Actions 默认只读，写权限按 job 分配。PR 标题、正文和代码均视为输入，禁止直接插入 shell；写权限工作流只执行可信默认分支代码。
 - OpenAI 审查固定使用工作流中的 `gpt-6-astra` / `medium`，只做静态审查；凭据只在审查 job 使用，发布 job 单独运行。只发布匹配当前 PR head 的报告。
 - 发布使用明确的 commit 和版本；自动化生成 draft Release，正式发布、商店提交和线上后端变更以当前任务的授权范围为准。
+- 扩展 Release 的自定义附件仅为离线、Chrome、Firefox 三个 ZIP，不生成或上传 `SHA256SUMS` 等校验文件。
 - Pages 使用 `.github/workflows/deploy-page.yml`，仅保留 `workflow_dispatch`。只有用户主动要求运行部署时才触发；合并、push、PR 和定时任务均不部署，本次配置与普通开发的运行观察也不授权部署。
 
 ## Review guidelines
