@@ -49,7 +49,7 @@ Issue 写清目标、范围、实际入口、完成条件和依赖；直接来�
 ## 自动化入口
 
 - [OpenAI PR Review](https://github.com/BlackSlience-Reaper/egress-observatory/actions/workflows/openai-review.yml)：可信写权限触发者的同仓库非草稿 PR 自动审查；fork PR 由维护者输入编号手动运行。模型和推理强度以工作流为准，当前为 `gpt-6-astra` / `medium`。结果只发表静态意见，不批准或自动合并。
-- [PR Labels](https://github.com/BlackSlience-Reaper/egress-observatory/actions/workflows/pr-labels.yml)：按变更路径添加 area 与 documentation 标签；维护者也可输入 PR 编号手动运行。只读取可信配置与 PR 文件列表。
+- [PR Labels](https://github.com/BlackSlience-Reaper/egress-observatory/actions/workflows/pr-labels.yml)：按变更路径添加 area 与 documentation 标签；维护者也可输入当前或历史 PR 编号手动运行。只读取可信配置与 PR 文件列表。
 - [Copilot Setup Steps](https://github.com/BlackSlience-Reaper/egress-observatory/actions/workflows/copilot-setup-steps.yml)：从 Actions 的 Run workflow 或 `gh workflow run copilot-setup-steps.yml --ref master` 准备可运行环境。
 - [Prepare Helper Release](https://github.com/BlackSlience-Reaper/egress-observatory/actions/workflows/helper-release.yml)：从默认分支生成绑定 commit 的 draft Release、离线包、Chrome/Firefox 商店包和 SHA256SUMS。不会自动提交商店。
 - Dependabot 每周检查 GitHub Actions 和 Python 依赖，分组提交普通版本更新 PR；更新后仍需要说明实际入口的观察结果。
@@ -60,6 +60,8 @@ Issue 写清目标、范围、实际入口、完成条件和依赖；直接来�
 默认分支要求 PR、squash 线性历史和讨论解决，禁止删除与强推。单人维护时审批数为 0，CODEOWNERS 用于标明负责人；不设置测试状态门槛。规则的可重建请求体在 [default-branch.json](../.github/rulesets/default-branch.json)，实际生效状态以 GitHub Rules 页面为准。
 
 仓库合并方式、主页与安全更新设置的请求体在 [repository.json](../.github/repository.json)。管理员可用 `gh api --method PATCH repos/BlackSlience-Reaper/egress-observatory --input .github/repository.json` 应用；Dependabot alerts 须先启用。已有分支规则可用 `gh api --method PUT repos/BlackSlience-Reaper/egress-observatory/rulesets/规则ID --input .github/rulesets/default-branch.json` 更新，创建新规则使用对应 POST 接口。GitHub 账号功能和 Security 设置仍以实际读取结果为准。
+
+CodeQL 的请求体在 [codeql-default-setup.json](../.github/codeql-default-setup.json)，管理员使用 `gh api --method PATCH repos/BlackSlience-Reaper/egress-observatory/code-scanning/default-setup --input .github/codeql-default-setup.json` 应用。首次配置会建立实际扫描任务；运行入口和发现的缺陷在仓库 Security 页查看。
 
 `master` 合并会触发 Pages 发布。合并前记录实际入口证据和未观察范围；合并后从 Pages 部署记录与公开页面核实相关结果。需要回退时从最新 `master` 创建修复分支，对目标提交执行 `git revert <SHA>`，通过 PR 恢复，再观察页面；保留远程历史。
 

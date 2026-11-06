@@ -44,7 +44,7 @@ body:
         - 数据源
         - 后端接口行为
         - 本机查询服务
-        - Chrome 扩展
+        - 浏览器扩展（Chrome / Edge / Firefox）
         - 仓库、CI 与文档
     validations:
       required: true
