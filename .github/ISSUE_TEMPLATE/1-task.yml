@@ -1,6 +1,6 @@
 name: 开发任务
 description: 记录一项要做的工作，之后通过 PR 完成
-labels: [task]
+labels: [task, 'status:triage']
 body:
   - type: textarea
     id: goal
@@ -13,10 +13,24 @@ body:
     id: done
     attributes:
       label: 完成标准
-      description: 怎样算做完，最好能逐条验证。
+      description: 写出用户能调用的入口、操作和可观察结果。测试绿灯不作为完成条件。
       value: |
         - [ ]
         - [ ]
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: 范围与依赖
+      description: 涉及哪些模块，依赖哪些接口或其他任务，哪些结果本任务负责交付。
+    validations:
+      required: true
+  - type: textarea
+    id: entry
+    attributes:
+      label: 实际入口与证据
+      description: 从哪个页面、菜单或命令调用，交付时提供哪些脱敏截图、输出或产物链接。
     validations:
       required: true
   - type: dropdown
@@ -30,7 +44,7 @@ body:
         - 数据源
         - 后端接口行为
         - 本机查询服务
-        - Chrome 扩展
+        - 浏览器扩展（Chrome / Edge / Firefox）
         - 仓库、CI 与文档
     validations:
       required: true

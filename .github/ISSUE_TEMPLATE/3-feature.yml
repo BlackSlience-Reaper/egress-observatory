@@ -1,6 +1,6 @@
 name: 功能建议
 description: 提议新的能力或改进现有体验
-labels: [enhancement]
+labels: [enhancement, 'status:triage']
 body:
   - type: textarea
     id: problem

@@ -2,19 +2,21 @@
 
 任务统一放在 [Issues](https://github.com/BlackSlience-Reaper/egress-observatory/issues)，通过 PR 完成。`master` 受保护，任何人（包括仓库管理员）都不能直接推送。
 
-**合并到 `master` 就等于发布**：GitHub Pages 从 `master` 根目录直接提供网站。
+网站使用手动部署：维护者在 [Deploy Pages](https://github.com/BlackSlience-Reaper/egress-observatory/actions/workflows/deploy-page.yml) 点击 **Run workflow**，选择 `master` 后发布该次选定的 commit。合并和 push 不触发部署；agent 只有在用户主动要求发布时才运行此入口。
 
 ## 工作流
 
 1. **建 issue**：在 [新建页面](https://github.com/BlackSlience-Reaper/egress-observatory/issues/new/choose) 选一个模板，自己要做的工作选“开发任务”。
-2. **开分支**：从最新的 `master` 拉出，分支名用 `<issue 编号>-<简短描述>`。
+2. **开分支**：从最新的 `master` 拉出，分支名用 `Harukili/<issue 编号>-<简短描述>`；用户直接布置且没有 Issue 时可省略编号。
 3. **提 PR**：按模板填写，正文写 `Closes #编号`，合并时 issue 会自动关闭。
-4. **合并**：CI 通过后 squash 合并，远程分支会自动删除。
+4. **合并**：记录实际入口的操作和结果、解决 PR 讨论后 squash 合并，远程分支会自动删除。测试结果不作为合并门槛。
+
+Agent 统一读取 [AGENTS.md](AGENTS.md)；项目技能、GitHub 自动化入口和交接格式见 [Agent 工作流](docs/agent-workflow.md)。用户直接布置的任务可在 PR 说明任务来源，无需另建 Issue。
 
 常用命令（把 `12` 换成你的 issue 编号）：
 
 ```bash
-gh issue develop 12 --base master --name 12-short-description --checkout
+gh issue develop 12 --base master --name Harukili/12-short-description --checkout
 ```
 
 ```bash
@@ -34,7 +36,7 @@ gh pr merge --squash
 ```bash
 git switch master
 git pull --prune
-git branch -d 12-short-description
+git branch -d Harukili/12-short-description
 ```
 
 `git branch -d` 可能因为 squash 合并提示分支未合并；确认 PR 已合并后，可以换成 `git branch -D`。
@@ -45,14 +47,14 @@ git branch -d 12-short-description
 
 ```bash
 git fetch
-git switch 12-short-description
+git switch Harukili/12-short-description
 ```
 
-进度和没做完的部分记在 issue 评论里。别在两台电脑上同时改同一个分支；回来继续前先 `git pull`。
+进度与未完成部分按 [交接格式](docs/agent-workflow.md#交付与交接记录) 记录；agent 发布 Issue/PR 消息须在当前任务授权内。别在两台电脑上同时改同一个分支；回来继续前先 `git pull`。
 
 ## 环境配置
 
-需要 Git、[GitHub CLI](https://cli.github.com/)、Python 3.12 和 Node.js 24（CI 使用的版本）。Node 只用来跑测试，项目没有 npm 依赖。
+需要 Git、[GitHub CLI](https://cli.github.com/) 和 Python 3.12 或更新版本。项目使用原生 ES modules，没有 npm 运行依赖或构建步骤。
 
 ### Windows
 
@@ -61,7 +63,6 @@ git switch 12-short-description
 ```powershell
 winget install Git.Git
 winget install GitHub.cli
-winget install OpenJS.NodeJS.LTS
 winget install Python.Python.3.12
 ```
 
@@ -75,10 +76,9 @@ git config user.name "你的名字"
 git config user.email "<ID>+<用户名>@users.noreply.github.com"
 ```
 
-运行测试和本地站点（也可以双击 `启动网站.cmd`）：
+运行本地站点（也可以双击 `启动网站.cmd`）：
 
 ```powershell
-npm test
 python local_server.py
 ```
 
@@ -87,7 +87,6 @@ python local_server.py
 ### macOS / Linux
 
 ```bash
-npm test
 python3 local_server.py
 ```
 
@@ -96,7 +95,7 @@ python3 local_server.py
 本地的“查询”和网页补全还需要 Playwright 和 Chromium。Windows 上用 `python`，macOS / Linux 上用 `python3`：
 
 ```bash
-python -m pip install playwright
+python -m pip install -r requirements.txt
 python -m playwright install chromium
 ```
 
@@ -132,7 +131,8 @@ python -m playwright install chromium
 
 - **一个 PR 解决一个 issue**，无关改动另开。
 - **PR 标题就是 `master` 上的提交信息**（squash 合并，正文不进入提交信息）。用一句英文祈使句说明结果，例如 `Raise the bonus cap from 8 to 10`。
-- **CI 必须通过**：Ubuntu 和 Windows 上都会运行单元测试、Python 语法检查，并核对扩展与网站的共用文件是否一致。
+- **提供真实入口证据**：写明入口、环境、操作、实际结果及未观察范围。配置工作直接调用对应 CLI、GitHub Actions 或设置入口并读取产物。
+- **不写、不新增、不维护、不修复、不运行测试或守门脚本**。保留 `tests/` 历史文件；既有结果不能作为完成证据或合并门槛。
 - **PR 上的讨论要全部解决**才能合并。目前不要求审批，因为项目由一人维护，而 GitHub 不允许作者批准自己的 PR。
 
 ## 按改动范围的约定
@@ -143,7 +143,7 @@ python -m playwright install chromium
 
 ### 评分
 
-`src/score.js` 是纯函数：输入证据，输出分数和解释。改规则时同步 [SCORING.md](SCORING.md) 和 `tests/score.test.mjs`。
+`src/score.js` 是纯函数：输入证据，输出分数和解释。改规则时同步 [SCORING.md](SCORING.md)，并从页面记录实际输入、扣分原因和导出证据。
 
 ### 数据源
 
@@ -155,7 +155,7 @@ python -m playwright install chromium
 
 ### 后端
 
-线上后端不在这个仓库，开发和测试都不需要后端权限或 key。需要新接口或改变接口行为时，开一个 issue 描述想要的结果，由维护者处理。
+线上后端不在这个仓库，前端开发不需要后端权限或 key。需要新接口或改变接口行为时，在任务中描述想要的结果，由维护者处理。
 
 ### 本机查询服务
 
@@ -163,7 +163,7 @@ python -m playwright install chromium
 
 ### 浏览器扩展
 
-`browser-helper/` 里的 `page-extract.js`、`page-providers.js` 和 `util.js` 必须与 `src/` 下的同名文件一致，CI 会检查。发新版本时：
+`browser-helper/` 里的 `page-extract.js`、`page-providers.js` 和 `util.js` 必须与 `src/` 下的同名文件一致。发新版本时：
 
 1. 升级 `browser-helper/manifest.json` 的 `version`。
 2. 在仓库根目录重新打包：
@@ -181,6 +181,8 @@ python -m playwright install chromium
 3. 脚本会同步 `README.md`、`browser-helper/README.md`、`index.html` 的版本引用和 README 的商店列表。离线包在 `downloads/`，各浏览器上传包在忽略提交的 `dist/`：`-chrome.zip` 用于 Chrome、Edge 与 Opera，`-firefox.zip` 由 `browser-helper/manifest.firefox.json` 改写 manifest 后用于 Firefox；保留已有版本的离线 ZIP。
 4. 网站用到新版插件才有的功能时，在 `src/render.js` 的 `HELPER_FEATURES` 记下该功能的首个版本，旧版本照常使用；只有所有访客都必须升级时，才手动提高 `MIN_HELPER_VERSION`。改了 `render.js` 记得沿导入链更新 `?v=`。商店文案与发布步骤见 [browser-helper/STORE.md](browser-helper/STORE.md)。
 
+合并后可从 [Prepare Helper Release](https://github.com/BlackSlience-Reaper/egress-observatory/actions/workflows/helper-release.yml) 的 Run workflow 或 `gh workflow run helper-release.yml --ref master` 生成绑定 commit 的 GitHub draft Release，附件包含离线包、Chrome/Firefox 商店包和 SHA256SUMS。正式发布和商店上架分别执行；已存在的版本不会被工作流覆盖。
+
 ## 隐私与密钥
 
 - **不要提交真实 IP**。代码、测试、文档和截图里统一使用文档保留地址：`192.0.2.0/24`、`198.51.100.0/24`、`203.0.113.0/24`、`2001:db8::/32`。
@@ -196,6 +198,8 @@ python -m playwright install chromium
 | `area:frontend`、`area:scoring`、`area:sources`、`area:api`、`area:lookup`、`area:extension`、`area:repo` | 涉及范围 |
 | `platform:windows`、`platform:macos` | 只在该平台出现，或需要在该平台验证 |
 | `P0`、`P1`、`P2` | 优先级：立刻处理、下一步处理、排期处理 |
+| `status:triage`、`status:ready`、`status:in-progress`、`status:blocked` | 任务状态，同一时间保留一个；PR 用 draft/ready 表达审查状态 |
+| `dependencies` | Dependabot 的 Actions 与 Python 依赖更新 |
 
 ## 许可
 

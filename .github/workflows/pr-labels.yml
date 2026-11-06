@@ -1,0 +1,45 @@
+name: PR Labels
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      pull_number:
+        description: Pull request number to label
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: pr-labels-${{ github.event.pull_request.number || inputs.pull_number }}
+  cancel-in-progress: true
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Resolve the pull request
+        id: pr
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          REQUESTED_PR: ${{ inputs.pull_number || github.event.pull_request.number }}
+        with:
+          script: |
+            const raw = process.env.REQUESTED_PR || '';
+            if (!/^[1-9]\d*$/.test(raw)) throw new Error('Provide a positive PR number.');
+            const { data: pr } = await github.rest.pulls.get({
+              ...context.repo, pull_number: Number(raw),
+            });
+            core.setOutput('number', String(pr.number));
+      # No checkout: labeler reads the default-branch configuration through the API.
+      - name: Add labels from changed paths
+        uses: actions/labeler@b8dd2d9be0f68b860e7dae5dae7d772984eacd6d # v6
+        with:
+          pr-number: ${{ steps.pr.outputs.number }}
+          sync-labels: false

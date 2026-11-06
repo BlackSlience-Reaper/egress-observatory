@@ -1,0 +1,6 @@
+{
+  "state": "configured",
+  "query_suite": "default",
+  "threat_model": "remote_and_local",
+  "languages": ["actions", "javascript-typescript", "python"]
+}

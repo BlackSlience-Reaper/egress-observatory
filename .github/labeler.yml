@@ -1,0 +1,21 @@
+area:frontend:
+  - changed-files:
+      - any-glob-to-any-file: ['index.html', 'styles.css', 'src/render.js', 'src/main.js']
+area:scoring:
+  - changed-files:
+      - any-glob-to-any-file: ['src/score.js', 'SCORING.md']
+area:sources:
+  - changed-files:
+      - any-glob-to-any-file: ['src/sources.js', 'src/blocklists.js', 'src/asn.js', 'src/probes.js', 'src/*provider*.js', 'src/*extract*.js', 'src/ip*.js', 'src/supplements.js', 'src/own-keys.js', 'DATA-SOURCES.md']
+area:lookup:
+  - changed-files:
+      - any-glob-to-any-file: ['local_server.py', 'provider_pages.py', 'requirements.txt', 'src/page-lookups.js']
+area:extension:
+  - changed-files:
+      - any-glob-to-any-file: ['browser-helper/**', 'downloads/**', 'src/helper*.js']
+area:repo:
+  - changed-files:
+      - any-glob-to-any-file: ['.github/**', '.agents/**', 'AGENTS.md', 'CLAUDE.md', 'CONTRIBUTING.md', 'SECURITY.md', 'docs/**', '.editorconfig', '.gitignore', '.gitattributes', 'package.json']
+documentation:
+  - changed-files:
+      - any-glob-to-any-file: ['**/*.md']
