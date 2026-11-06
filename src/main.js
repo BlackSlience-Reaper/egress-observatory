@@ -29,8 +29,9 @@ $('types').addEventListener('click',event=>{
 const app = {
   masked: localStorage.getItem('egress-mask') === '1',
   egress: null, egressPromise: null, health: null, healthPromise: null, healthPending: false, healthAt: 0, run: null, frame: 0,
-  // Only the latest check and the latest exit detection may write their results.
-  runSeq: 0, egressSeq: 0,
+  // Only the latest check and the latest exit detection may write their results; autoStart is the detection still
+  // allowed to start the self-check (0 once anything else was checked).
+  runSeq: 0, egressSeq: 0, autoStart: 0,
 };
 
 // ---------- backend capabilities ----------
@@ -202,6 +203,8 @@ function rememberIP(ip) {
 async function startRun(input, fetchPages = true) {
   const parsed = parseIP(input);
   if (!parsed || !checkable(parsed.ip)) { $('status').textContent = mock ? '模拟模式只接受文档保留地址，例如 203.0.113.10。' : '请输入有效的公网 IPv4 或 IPv6 地址。'; return; }
+  // Any check, above all one the visitor asked for, takes the place of a self-check still waiting to start.
+  app.autoStart = 0;
   const seq = ++app.runSeq;
   rememberIP(parsed.ip);
   const healthReady = refreshHealth(true);
@@ -550,6 +553,8 @@ function refreshEgress({ autoStart }) {
   let started = false;
   const token = ++app.egressSeq;
   const latest = () => token === app.egressSeq;
+  if (autoStart) app.autoStart = token;
+  const mayStart = () => autoStart && !started && app.autoStart === token;
   const button = $('self-check');
   button.disabled = true;
   app.egress = null;
@@ -557,7 +562,7 @@ function refreshEgress({ autoStart }) {
   app.egressPromise = detectEgress(undefined, results => {
     if (!latest()) return;
     app.egress = { ...summarizeEgress(results), partial: true };
-    if (autoStart && !started) {
+    if (mayStart()) {
       const first = app.egress.v4 || null;
       if (first && results.find(item => item.id === 'ipify4')?.status !== 'pending') { started = true; startRun(first); }
     }
@@ -567,7 +572,7 @@ function refreshEgress({ autoStart }) {
     if (!latest()) return summary;
     app.egress = summary;
     button.disabled = false;
-    if (autoStart && !started) {
+    if (mayStart()) {
       started = true;
       if (summary.v4 || summary.v6) startRun(summary.v4 || summary.v6);
       else $('status').textContent = '没能识别本机出口 IP，可以直接输入要检测的地址。';
