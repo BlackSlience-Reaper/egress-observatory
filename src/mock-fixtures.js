@@ -65,6 +65,27 @@ const CLOUD = {
   browser: { zone: 'Asia/Shanghai', languages: ['zh-CN', 'zh'] },
 };
 
+// A home line on a reputable ISP that two databases call a proxy, used from mainland China through rule-based split
+// routing: domestic sites go direct, and domains no rule names (like the random DNS probe domains) are resolved by a
+// mainland resolver first, which also forwards the visitor's own subnet.
+const SPLIT = {
+  ...HOME,
+  risk: 30,
+  extras: {
+    ...HOME.extras,
+    ipqs: { ...HOME.extras.ipqs, risk: 75, connectionType: 'Residential', flags: { ...HOME.flags, proxy: true, vpn: true } },
+    vpnapi: { flags: { ...HOME.flags, proxy: true } },
+  },
+  resolvers: [
+    { ip: '203.0.113.153', country: 'US', asn: 'AS64500 Example Broadband' },
+    { ip: '192.0.2.153', country: 'CN', asn: 'AS64520 Example Mainland DNS' },
+  ],
+  resolver: { ip: '192.0.2.153', country: 'CN', asn: 'AS64520 Example Mainland DNS', geo: 'CN - Example Mainland DNS' },
+  ecs: { subnet: '192.0.2.0/24', geo: 'CN - Example Mainland ISP' },
+  tcp: { avg_score_os_class: { Linux: 0.88, Windows: 0.31 }, perfect_score: 0.88, os_mismatch: true, relay: { ua_os: 'Windows', flagged: false, probability: 0.4 } },
+  browser: { zone: 'Asia/Shanghai', languages: ['zh-CN', 'zh'] },
+};
+
 // ---------- scenarios ----------
 // Each has its own address because answers are cached in localStorage per IP. A fault is an HTTP status, 'network'
 // (the browser gets no response), 'html' (200 but not JSON) or 'hang' (no answer until the caller's own timeout).
@@ -72,6 +93,7 @@ const CLOUD = {
 const SCENARIOS = {
   clean: { label: '干净家宽', ip: '203.0.113.10', net: HOME },
   datacenter: { label: '机房加代理', ip: '198.51.100.20', v6: '2001:db8::20', net: CLOUD },
+  split: { label: '国内外分流', ip: '203.0.113.60', domestic: '192.0.2.99', net: SPLIT },
   partial: {
     label: '部分来源失败', ip: '192.0.2.30', net: HOME,
     faults: [
@@ -96,7 +118,7 @@ const SCENARIOS = {
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
 const status = (code, body, headers = {}) => new Response(JSON.stringify(body), { status: code, headers: { ...JSON_HEADERS, ...headers } });
 
-function routes({ ip: self, v6, net }) {
+function routes({ ip: self, v6, domestic, net }) {
   const { flags: f } = net;
   const worker = (route, ip) => ({
     status: 'success', ip, country: net.country, region: net.region, city: net.city, lat: net.lat, lon: net.lon, asn: net.asn, org: net.org, timezone: net.tz,
@@ -146,7 +168,7 @@ function routes({ ip: self, v6, net }) {
     [/^https:\/\/(?:www\.cloudflare\.com|1\.1\.1\.1)\/cdn-cgi\/trace/, () => `ip=${self}\nloc=${net.country}\ncolo=${net.colo}\nhttp=http/2\ntls=TLSv1.3\nwarp=off\ngateway=off\n`],
     [/^https:\/\/api\.ip\.sb\/ip$/, () => self],
     [/^https:\/\/ipinfo\.io\/json/, () => ({ ip: self })],
-    [/^https:\/\/myip\.ipip\.net\/json/, () => ({ data: { ip: self } })],
+    [/^https:\/\/myip\.ipip\.net\/json/, () => ({ data: { ip: domestic || self, location: domestic ? ['中国', '上海', '上海', '', '电信'] : [] } })],
 
     // The site's own API.
     [/^api:\/health$/, () => ({
@@ -239,8 +261,8 @@ function routes({ ip: self, v6, net }) {
 
     // Live probes that go through fetch.
     [/^https:\/\/\d\.[0-9a-f]+\.bash\.ws\//, () => ''],
-    [/^https:\/\/bash\.ws\/dnsleak\/test\//, () => [{ type: 'dns', ip: net.resolver.ip, country: net.resolver.country, asn: net.resolver.asn }, { type: 'ip', ip: self }]],
-    [/^https:\/\/[a-z0-9]+\.edns\.ip-api\.com\/json/, () => ({ dns: { ip: net.resolver.ip, geo: net.resolver.geo } })],
+    [/^https:\/\/bash\.ws\/dnsleak\/test\//, () => [...(net.resolvers || [net.resolver]).map(item => ({ type: 'dns', ip: item.ip, country: item.country, asn: item.asn })), { type: 'ip', ip: self }]],
+    [/^https:\/\/[a-z0-9]+\.edns\.ip-api\.com\/json/, () => ({ dns: { ip: net.resolver.ip, geo: net.resolver.geo }, ...(net.ecs && { edns: { ip: net.ecs.subnet, geo: net.ecs.geo } }) })],
     [/^https:\/\/tcpip\.incolumitas\.com\/classify/, () => ({ lookup_ip: self, ...net.tcp })],
   ];
 }

@@ -5,7 +5,6 @@
 打开即检测本机出口 IP，给出一个能说清每一分扣在哪里的质量分。
 
 [![在线使用](https://img.shields.io/badge/%E5%9C%A8%E7%BA%BF%E4%BD%BF%E7%94%A8-Egress-2563eb)](https://blackslience-reaper.github.io/egress-observatory/)
-[![CI](https://github.com/BlackSlience-Reaper/egress-observatory/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/BlackSlience-Reaper/egress-observatory/actions/workflows/ci.yml)
 [![Stars](https://img.shields.io/github/stars/BlackSlience-Reaper/egress-observatory?style=flat)](https://github.com/BlackSlience-Reaper/egress-observatory/stargazers)
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE)
 [![爱发电](https://img.shields.io/badge/%E7%88%B1%E5%8F%91%E7%94%B5-%E8%B5%9E%E5%8A%A9-946ce6)](https://ifdian.net/a/Harukili)
@@ -49,7 +48,7 @@ Egress 联合 20 多个 IP 数据库、16 个 DNS 黑名单、17 个威胁、代
 
 ## 评分
 
-评分以安全为主：IP 自身记录、邻居和 ASN 信誉权重最高；基准 92 分，正面证据最多加 10 分。完整规则见 [SCORING.md](SCORING.md)。
+评分以安全为主：IP 自身记录、邻居和 ASN 信誉权重最高；基准 92 分，正面证据最多加 10 分。IP 本身与连接实测的加分、扣分分开列出；证据不足或可能误判的项标 ?，按比例计，信誉好的运营商 ASN 会少量减轻 IP 本身的数据库标记。开启国内外分流、且代理端也解析了测试域名时，国内 DNS 的解析记为“分流解析”，只轻度扣分。完整规则见 [SCORING.md](SCORING.md)。
 
 **ASN 交叉核对**作为低权重提示：IP 被数据库标成家宽，但宣告它的 ASN 被推断为机房或 CDN，会单独扣分并在“ASN 一致性”里说明原因；骨干网只提示、不扣分；子分配给其他公司、近期登记或由 IP 租赁平台管理的地址段标为“租赁 / 转售”。
 

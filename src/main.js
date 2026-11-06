@@ -4,17 +4,17 @@ import { setupImport, supplementTypes, readReport, readRiskReport, mergeTypeRepo
 import { setupProviderImport, readProviderReport, mergeProviderPage, lookupChromePages } from './provider-pages.js?v=4.3';
 /** Orchestration: detect the egress, fan out every check, rescore as results arrive. */
 import { API_BASE } from '../config.js?v=cloud3';
-import { mock } from './mock.js?v=1';
+import { mock } from './mock.js?v=2';
 import { lookupPage } from './page-lookups.js?v=7';
 import { getJSON, parseIP, isPublicIP, sameIP, maskIP, maskText } from './util.js?v=4.1';
-import { SOURCES, runSource } from './sources.js?v=3.5';
-import { setupOwnKeys } from './own-keys.js?v=2';
+import { SOURCES, runSource } from './sources.js?v=3.6';
+import { setupOwnKeys } from './own-keys.js?v=3';
 import { DNSBLS, checkDNSBL, CIDR_LISTS, checkCIDRList, asnAbuseDensity } from './blocklists.js';
 import { fetchASN, inferASN, detectLease } from './asn.js?v=4.3';
-import { detectEgress, summarizeEgress, probeWebRTC, probeDNS, classifyDNS, probeTCP, probeEnvironment, probeIPv6, classifyIPv6, traceProbe } from './probes.js?v=2';
+import { detectEgress, summarizeEgress, probeWebRTC, probeDNS, classifyDNS, probeTCP, probeEnvironment, probeIPv6, classifyIPv6, traceProbe } from './probes.js?v=5';
 import { runTurnstile, runRecaptcha } from './captcha.js?v=4.2';
-import { score } from './score.js?v=4.9';
-import * as view from './render.js?v=4.29';
+import { score } from './score.js?v=5.2';
+import * as view from './render.js?v=4.32';
 
 const $ = id => document.getElementById(id);
 // In mock mode only documentation addresses can be checked, so real ones never meet fixture answers.
@@ -133,7 +133,7 @@ function compute(run) {
   const first = score(evidence);
   if (run.self) {
     // Second pass: DNS and IPv6 are judged against the location consensus from the first pass.
-    run.probes.dnsClassified = classifyDNS(run.probes.dns, first.summary);
+    run.probes.dnsClassified = classifyDNS(run.probes.dns, first.summary, app.egress);
     run.probes.ipv6Classified = classifyIPv6(run.probes.ipv6, first.summary);
     evidence.probes.dns = run.probes.dnsClassified;
     evidence.probes.ipv6 = run.probes.ipv6Classified;
@@ -488,8 +488,8 @@ function exportReport() {
   const hide = value => (app.masked && typeof value === 'string' ? maskText(value, [run.ip]) : value);
   const report = {
     schema: 'egress-report/v3', exportedAt: new Date().toISOString(), ip: app.masked ? maskIP(run.ip) : run.ip, self: run.self,
-    score: run.result.score, ipScore: run.result.ipScore, grade: run.result.grade, verdict: run.result.verdict,
-    categories: run.result.categories, uses: run.result.uses, summary: run.result.summary,
+    score: run.result.score, ipScore: run.result.ipScore, liveDelta: run.result.liveDelta, grade: run.result.grade, verdict: run.result.verdict,
+    bonus: run.result.bonus, asnTrust: run.result.asnTrust, categories: run.result.categories, uses: run.result.uses, summary: run.result.summary,
     sources: Object.fromEntries(Object.entries(run.sources).map(([id, record]) => [id, { status: record.status, error: record.error || null, data: record.data || null }])),
     dnsbl: run.dnsbl, lists: run.lists, asn: run.asnProfile, probes: run.self ? { ...run.probes, dns: undefined, ipv6: undefined } : null,
   };

@@ -5,6 +5,8 @@
  * Voted items deduct by the weighted share of sources that flag them, so a lone hit among many misses costs little.
  * Safety comes first: anonymity, abuse, and the reputation of the /24 neighbours and the ASN carry most
  * of the weight; network type, ASN-type consistency and native/broadcast are small descriptive hints.
+ * Items resting on an uncertain label, or on database labels that a reputable ASN makes doubtful, are marked "?"
+ * and count in proportion.
  * Live connection checks apply only when the target is the visitor's own egress.
  * Every deduction carries its evidence so the UI can show exactly why points were taken.
  */
@@ -59,11 +61,16 @@ export const GEO_FAMILY = Object.freeze({
 });
 
 const TYPE_LABEL = { residential: '家宽', mobile: '移动网络', business: '商业宽带', hosting: '机房', education: '教育网' };
+const USE_NAMES = { ai: 'AI 服务', account: '注册付款', stream: '流媒体', social: '社媒', mail: '直接发信' };
 export const AI_BLOCKED = new Set(['CN', 'HK', 'MO', 'RU', 'BY', 'IR', 'KP', 'SY', 'CU']);
 const NOW = () => Date.now();
 /** Score of a clean IP without positive evidence; bonuses (up to BONUS_CAP) lift it towards 100. */
 export const BASE = 92;
 export const BONUS_CAP = 10;
+/** Labels below this certainty show "?"; score items resting on them count certainty ÷ UNSURE of their points. */
+export const UNSURE = 0.6;
+/** A reputable ASN discounts the IP's own database labels by up to this share (ASN trust 1). */
+const ASN_RELIEF = 0.2;
 
 import { zoneOffset } from './util.js';
 
@@ -80,6 +87,45 @@ const COUNTRY_LANGS = {
 const r1 = value => Math.round(value * 10) / 10;
 const r3 = value => Math.round(value * 1000) / 1000;
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+const pct = value => `${Math.round(value * 100)}%`;
+
+/** A "?" on a score item: k is the share of its points that still counts, why says what makes it doubtful. */
+const unsureLabel = (certainty, what) => (certainty < UNSURE ? { k: Math.max(0, certainty) / UNSURE, why: `${what}确定度 ${pct(certainty)}` } : null);
+
+/** Combined weight of an item's doubts, and the text behind its "?". */
+function doubtOf(doubts) {
+  const list = (doubts || []).filter(Boolean);
+  const k = list.reduce((product, doubt) => product * doubt.k, 1);
+  return k < 0.995 ? { k: r3(k), why: `按 ${pct(k)} 计：${list.map(doubt => doubt.why).join('；')}` } : null;
+}
+
+/**
+ * ASN trust, −1…1: how reputable the announcing network is, from its abuse history (abuse density against the
+ * internet-wide average), its business type, Cloudflare Radar's human share and its age. Abuse density or type is required.
+ * Only the reputable side is used, to discount the IP's own database labels; a poor ASN is already scored under 邻居与 ASN 信誉.
+ */
+function asnTrustOf(asnInfo, rep, botShare) {
+  const parts = [];
+  if (rep?.size) {
+    const value = rep.ratio > 0 ? clamp(-Math.log10(rep.ratio), -1, 1) : 1;
+    parts.push({ w: rep.size >= 4096 ? 0.45 : 0.2, value, text: `滥用密度为全网平均的 ${rep.ratio} 倍` });
+  }
+  const inferred = asnInfo.inferred;
+  if (inferred?.cls) {
+    const base = { isp: 1, mobile: 1, education: 0.5, government: 0.5, business: 0.2, transit: 0, cdn: -0.3, hosting: -0.6 }[inferred.cls] ?? 0;
+    parts.push({ w: 0.25, value: base * (inferred.confidence ?? 0), text: inferred.label || inferred.cls });
+  }
+  if (!parts.length) return null;
+  if (botShare !== null) parts.push({ w: 0.2, value: clamp((0.4 - botShare) / 0.25, -1, 1), text: `机器流量 ${pct(botShare)}` });
+  if (asnInfo.regDate && Number.isFinite(Date.parse(asnInfo.regDate))) {
+    const years = (NOW() - Date.parse(asnInfo.regDate)) / (365.25 * 864e5);
+    parts.push({ w: 0.1, value: clamp((years - 5) / 10, -1, 1), text: `注册 ${Math.max(0, Math.floor(years))} 年` });
+  }
+  const weight = parts.reduce((sum, part) => sum + part.w, 0);
+  const value = parts.reduce((sum, part) => sum + part.w * part.value, 0) / weight;
+  const relief = ASN_RELIEF * clamp(value, 0, 1);
+  return { value: r3(value), relief: r3(relief), reasons: parts.map(part => part.text) };
+}
 
 // ---------- evidence helpers ----------
 
@@ -176,8 +222,10 @@ export function score(evidence) {
   const sources = okSources(evidence);
   const items = Object.fromEntries(CATEGORIES.map(category => [category.id, []]));
   const notes = [];
-  const add = (category, id, label, pts, detail) => {
-    if (pts > 0.05) items[category].push({ id, label, pts: r1(pts), detail });
+  const add = (category, id, label, pts, detail, doubts) => {
+    const doubt = doubtOf(doubts);
+    const value = pts * (doubt?.k ?? 1);
+    if (value > 0.05) items[category].push({ id, label, pts: r1(value), detail, ...(doubt && { unsure: true, full: r1(pts), k: doubt.k, why: doubt.why }) });
   };
   const note = (level, textValue) => notes.push({ level, text: textValue });
 
@@ -213,6 +261,19 @@ export function score(evidence) {
   const orgRank = weightedRank(sources.filter(source => source.org).map(source => ({ value: source.org, w: geoWeight(source), by: source.name })));
   const hostname = sources.find(source => source.hostname)?.hostname || null;
 
+  // ---------- the announcing ASN: its profile, reputation and how far it vouches for the IP ----------
+  const asnInfo = evidence.asn || {};
+  const asnCls = asnInfo.inferred?.cls || null;
+  const asnHosting = asnInfo.inferred?.hosting ?? null;
+  const asnConf = asnInfo.inferred?.confidence ?? 0;
+  const rep = evidence.asnRep || null;
+  const botShare = typeof asnInfo.botShare === 'number' ? clamp(asnInfo.botShare, 0, 1) : null;
+  const asnTrust = asnTrustOf(asnInfo, rep, botShare);
+  // On a reputable operator's network a database's VPN / proxy / datacenter / risk label is more often a misjudgement.
+  const asnDoubt = asnTrust?.relief >= 0.02
+    ? { k: 1 - asnTrust.relief, why: `${asnInfo.label || 'ASN'} 信誉良好（${asnTrust.reasons.join('、')}），这项可能是误判` } : null;
+  const asnTypeDoubt = asnCls ? unsureLabel(asnConf, 'ASN 类型') : null;
+
   if (countries.length > 1 && countrySupport < 0.85) {
     const pts = clamp(6 * (0.85 - countrySupport) / 0.35, 0, 5);
     add('geo', 'geo-split', '定位分歧', pts, `${countries.map(item => `${item.value} ×${item.by.length}`).join(' · ')}`);
@@ -236,7 +297,7 @@ export function score(evidence) {
   if (regCountry && country) {
     native = regCountry === country;
     // Scaled by how much of the registration evidence disagrees with the location.
-    if (!native) add('geo', 'broadcast', '广播 IP', 3 * (1 - nativeShare), `注册地 ${regCountry}，定位 ${country}${nativeShare > 0 ? `；${Math.round(nativeShare * 100)}% 的注册信息与定位一致` : ''}`);
+    if (!native) add('geo', 'broadcast', '广播 IP', 3 * (1 - nativeShare), `注册地 ${regCountry}，定位 ${country}${nativeShare > 0 ? `；${Math.round(nativeShare * 100)}% 的注册信息与定位一致` : ''}`, [unsureLabel(nativeCertainty, '原生性')]);
     if (regRank.length > 1) note('info', `注册信息不一致：${regRank.map(item => `${item.value}（${item.by.join('、')}）`).join(' / ')}`);
   }
 
@@ -254,11 +315,14 @@ export function score(evidence) {
   const vpnPts = 24 * anonFlags.vpn.E; const proxyPts = 26 * anonFlags.proxy.E;
   const overlap = vpnPts > 0 && proxyPts > 0;
   const halfNote = other => (overlap ? `；与${other}证据重叠，按一半计` : '');
-  if (vpnPts) add('anon', 'vpn', 'VPN', overlap && vpnPts < proxyPts ? vpnPts / 2 : vpnPts, voteText(anonFlags.vpn) + (vpnPts < proxyPts ? halfNote('代理') : ''));
+  // A confirmation (Tor consensus, WARP) or a direct sighting (public proxy list, open proxy port) is not a database
+  // label that the ASN could make doubtful.
+  const labelDoubt = t => (t.hard || t.observedBy.length ? null : asnDoubt);
+  if (vpnPts) add('anon', 'vpn', 'VPN', overlap && vpnPts < proxyPts ? vpnPts / 2 : vpnPts, voteText(anonFlags.vpn) + (vpnPts < proxyPts ? halfNote('代理') : ''), [labelDoubt(anonFlags.vpn)]);
   const resProxyBy = sources.filter(source => source.resProxy === true).map(source => source.name);
-  if (proxyPts) add('anon', 'proxy', resProxyBy.length ? '代理（含住宅代理）' : '代理', overlap && proxyPts <= vpnPts ? proxyPts / 2 : proxyPts, voteText(anonFlags.proxy) + (proxyPts <= vpnPts ? halfNote(' VPN ') : ''));
-  if (anonFlags.relay.E > 0) add('anon', 'relay', '隐私中继', 5 * anonFlags.relay.E, voteText(anonFlags.relay));
-  if (anonFlags.crawler.E > 0) add('anon', 'crawler', '爬虫 / 自动化', 8 * anonFlags.crawler.E, voteText(anonFlags.crawler));
+  if (proxyPts) add('anon', 'proxy', resProxyBy.length ? '代理（含住宅代理）' : '代理', overlap && proxyPts <= vpnPts ? proxyPts / 2 : proxyPts, voteText(anonFlags.proxy) + (proxyPts <= vpnPts ? halfNote(' VPN ') : ''), [labelDoubt(anonFlags.proxy)]);
+  if (anonFlags.relay.E > 0) add('anon', 'relay', '隐私中继', 5 * anonFlags.relay.E, voteText(anonFlags.relay), [labelDoubt(anonFlags.relay)]);
+  if (anonFlags.crawler.E > 0) add('anon', 'crawler', '爬虫 / 自动化', 8 * anonFlags.crawler.E, voteText(anonFlags.crawler), [labelDoubt(anonFlags.crawler)]);
   const anonAny = Math.max(anonFlags.vpn.E, anonFlags.proxy.E);
   const devices = sources.find(source => source.id === 'proxycheck')?.devices;
   if (devices?.address >= 10) {
@@ -286,9 +350,6 @@ export function score(evidence) {
   const hosting = tally(hostingVotes);
   const nonHostingRank = weightedRank(typeVotes.filter(vote => vote.value !== 'hosting')
     .map(vote => ({ ...vote, value: vote.value === 'isp' ? 'residential' : vote.value === 'government' ? 'business' : vote.value })));
-  const asnInfo = evidence.asn || {};
-  const asnCls = asnInfo.inferred?.cls || null;
-  const asnHosting = asnInfo.inferred?.hosting ?? null;
   let ipType = null; let typeFrom = null;
   if (hosting.E >= 0.5) { ipType = 'hosting'; typeFrom = 'sources'; }
   else if (nonHostingRank.length) { ipType = nonHostingRank[0].value; typeFrom = 'sources'; }
@@ -324,8 +385,9 @@ export function score(evidence) {
   }
   typeMix = typeMix.filter(item => item.share > 0.005).sort((a, b) => b.share - a.share).map(item => ({ ...item, share: r1(item.share * 100) / 100 }));
 
-  if (hosting.E > 0) add('network', 'hosting', '机房 IP', 15 * hosting.E, voteText(hosting, '来源标记机房'));
-  else if (ipType === 'hosting' && typeFrom === 'asn') add('network', 'hosting-asn', '机房 IP（按 ASN 推断）', 10 * (asnHosting ?? 0.7), asnInfo.inferred?.reasons?.[0] || '');
+  const typeDoubt = unsureLabel(typeCertainty, '类型标签');
+  if (hosting.E > 0) add('network', 'hosting', '机房 IP', 15 * hosting.E, voteText(hosting, '来源标记机房'), [typeDoubt, labelDoubt(hosting)]);
+  else if (ipType === 'hosting' && typeFrom === 'asn') add('network', 'hosting-asn', '机房 IP（按 ASN 推断）', 10 * (asnHosting ?? 0.7), asnInfo.inferred?.reasons?.[0] || '', [typeDoubt]);
   // A business line is not a risk in itself: proxies on it are caught by the anonymity, lease and abuse items.
 
   // The key cross-check: a "residential" label inside a datacenter or transit ASN.
@@ -334,7 +396,7 @@ export function score(evidence) {
     const homeLike = ipType === 'residential' || ipType === 'mobile';
     if (homeLike && (asnCls === 'hosting' || asnCls === 'cdn') && (asnHosting ?? 0) >= 0.5) {
       asnConsistency = { ok: false, text: `标为${TYPE_LABEL[ipType]}，但 ${asnInfo.label || 'ASN'} 以机房为主` };
-      add('network', 'asn-conflict', '类型与 ASN 不符', 5 * asnHosting, asnConsistency.text);
+      add('network', 'asn-conflict', '类型与 ASN 不符', 5 * asnHosting, asnConsistency.text, [typeCertainty <= asnConf ? typeDoubt : asnTypeDoubt]);
     } else if (homeLike && asnCls === 'transit') {
       // A hint only: neither side is a datacenter, and leased space under the backbone is scored by the lease item.
       asnConsistency = { ok: true, warn: true, text: `标为${TYPE_LABEL[ipType]}，宣告方却是骨干 / 传输网：骨干网本身可靠，但家宽很少直接挂在它下面，这个标签存疑` };
@@ -354,8 +416,11 @@ export function score(evidence) {
   // Leased / sub-allocated address space (IP brokers, recent re-registration).
   const rdap = sources.find(source => source.id === 'rdap');
   const lease = asnInfo.lease || null;
+  // The lease tag shows "?" below a 0.7 hold, where it reads as half certain.
+  const leaseCertainty = lease ? (lease.confidence >= 0.7 ? 1 : 0.5) : 1;
+  const leaseDoubt = lease && leaseCertainty < UNSURE ? { k: leaseCertainty / UNSURE, why: `租赁把握 ${pct(lease.confidence)}` } : null;
   if (lease?.leased || lease?.possible) {
-    add('network', 'leased', lease.leased ? '租赁 / 转售地址段' : '可能是租赁地址段', 3 * clamp(lease.confidence / 0.7, 0, 1), lease.reasons.join('；'));
+    add('network', 'leased', lease.leased ? '租赁 / 转售地址段' : '可能是租赁地址段', 3 * clamp(lease.confidence / 0.7, 0, 1), lease.reasons.join('；'), [leaseDoubt]);
   }
   if (asnInfo.regDate && NOW() - Date.parse(asnInfo.regDate) < 2 * 365 * 864e5) {
     add('network', 'asn-young', '新注册 ASN', 2, `ASN 注册于 ${asnInfo.regDate.slice(0, 10)}`);
@@ -371,14 +436,12 @@ export function score(evidence) {
     }
     if (nb.tor) add('neighbours', 'neighbour-tor', '同网段有 Tor 节点', 3, `${nb.prefix} 内有 ${nb.tor} 个 Tor 中继`);
   }
-  const rep = evidence.asnRep || null;
   if (rep && rep.ratio >= 2) {
     const pts = rep.ratio >= 50 ? 12 : rep.ratio >= 15 ? 9 : rep.ratio >= 5 ? 6 : 3;
     add('neighbours', 'asn-abuse', 'ASN 滥用密度偏高', pts, `每万个地址 ${rep.per10k} 个近期上榜，约为全网平均的 ${rep.ratio} 倍`);
   }
   // 人机流量: Cloudflare Radar's 28-day human vs bot share of the ASN's HTTP traffic. Eyeball networks sit
   // around 10–30% bots; above 40% the network looks like servers and scrapers, and the deduction grows to 6 at 90%.
-  const botShare = typeof asnInfo.botShare === 'number' ? clamp(asnInfo.botShare, 0, 1) : null;
   const humanShare = botShare === null ? null : typeof asnInfo.radar?.human === 'number' ? clamp(asnInfo.radar.human, 0, 1) : 1 - botShare;
   const botE = botShare === null ? 0 : clamp((botShare - 0.4) / 0.5, 0, 1);
   const botText = botShare === null ? '' : `Cloudflare Radar 近 28 天：人类 ${Math.round(humanShare * 100)}%，机器 ${Math.round(botShare * 100)}%`;
@@ -398,9 +461,16 @@ export function score(evidence) {
   const riskMax = riskEntries.length ? Math.max(...riskEntries.map(entry => entry.v * Math.min(1, entry.w))) : null;
   const maxShare = riskEntries.length ? 0.4 * Math.min(1, Math.sqrt(3 / riskEntries.length)) : 0;
   const risk = riskW ? Math.round((1 - maxShare) * riskMean + maxShare * riskMax) : null;
-  if (risk) add('abuse', 'risk', '欺诈 / 风险分', 0.3 * risk, riskEntries.map(entry => `${entry.by} ${entry.v}`).join(' · '));
+  // Vendors' fraud scores are largely built from the same proxy / VPN / datacenter labels deducted above:
+  // the stronger that evidence, the less the score adds on top of it (down to 60% with a confirmed anonymous exit).
+  const riskOverlap = Math.max(anonAny, tor.E, 0.5 * hosting.E);
+  const riskK = 1 - 0.4 * riskOverlap;
+  if (risk) {
+    add('abuse', 'risk', '欺诈 / 风险分', 0.3 * risk * riskK,
+      riskEntries.map(entry => `${entry.by} ${entry.v}`).join(' · ') + (riskK < 0.995 ? `；与代理 / 机房标记重叠，按 ${pct(riskK)} 计` : ''), [asnDoubt]);
+  }
   const abuser = tally([...flagVotes(sources, 'abuser'), ...(extraVotes.abuser || [])]);
-  if (abuser.E > 0) add('abuse', 'abuser', '滥用 / 入侵记录', 10 * abuser.E, voteText(abuser));
+  if (abuser.E > 0) add('abuse', 'abuser', '滥用 / 入侵记录', 10 * abuser.E, voteText(abuser), [labelDoubt(abuser)]);
 
   const dnsbl = (evidence.dnsbl || []).filter(item => item.status === 'ok');
   const dnsblListed = dnsbl.filter(item => item.listed && item.kind !== 'tor');
@@ -447,15 +517,17 @@ export function score(evidence) {
   }
   const dns = probes.dns;
   if (dns?.status === 'ok' && dns.verdict) {
-    const pts = { own: 0, same: 0, public: 3, leak: 8, 'leak-cn': 12 }[dns.verdict] ?? 0;
+    // 'split': split routing resolves unlisted domains locally; sites in the proxy rules are usually resolved remotely.
+    const pts = { own: 0, same: 0, public: 3, split: 2, leak: 8, 'leak-cn': 12 }[dns.verdict] ?? 0;
     live.dns = pts >= 8 ? 'bad' : pts > 0 ? 'warn' : 'good';
-    if (pts) add('live', 'dns', dns.verdict === 'public' ? 'DNS 跨区解析' : 'DNS 泄漏', pts, dns.summary);
+    if (pts) add('live', 'dns', { public: 'DNS 跨区解析', split: 'DNS 分流解析' }[dns.verdict] || 'DNS 泄漏', pts, dns.summary);
     if (dns.ecsLeak) { live.dns = 'bad'; add('live', 'dns-ecs', 'EDNS 子网暴露位置', 10, dns.ecsSummary); }
   }
+  // Any proxy re-originates TCP from its own server, and few sites read SYN fingerprints: a light deduction.
   const tcp = probes.tcp;
   if (tcp?.status === 'ok') {
-    if (tcp.relay) { live.tcp = 'bad'; add('live', 'tcp', 'TCP 指纹像代理转发', 10, tcp.summary); }
-    else if (tcp.osMismatch) { live.tcp = 'warn'; add('live', 'tcp', 'TCP 系统指纹不一致', 5, tcp.summary); }
+    if (tcp.relay) { live.tcp = 'warn'; add('live', 'tcp', 'TCP 指纹像代理转发', 5, tcp.summary); }
+    else if (tcp.osMismatch) { live.tcp = 'warn'; add('live', 'tcp', 'TCP 系统指纹不一致', 2, tcp.summary); }
     else live.tcp = 'good';
   }
   const tz = probes.tz;
@@ -504,7 +576,11 @@ export function score(evidence) {
 
   // ---------- bonuses: strong positive evidence lifts a clean IP from the base towards 100 ----------
   const bonusItems = [];
-  const plus = (id, label, pts, detail, isLive = false) => bonusItems.push({ id, label, pts, detail, live: isLive });
+  const plus = (id, label, pts, detail, isLive = false, doubts = null) => {
+    const doubt = doubtOf(doubts);
+    const value = r1(pts * (doubt?.k ?? 1));
+    if (value > 0.05) bonusItems.push({ id, label, pts: value, detail, live: isLive, ...(doubt && { unsure: true, full: r1(pts), k: doubt.k, why: doubt.why }) });
+  };
   const anonCoverage = Math.max(anonFlags.vpn.of, anonFlags.proxy.of);
   if (anonFlags.vpn.E === 0 && anonFlags.proxy.E === 0 && tor.E === 0 && anonCoverage >= 4 && risk !== null && risk <= 10 && riskEntries.length >= 2) {
     plus('multi-clean', '多库一致干净', 2, `${anonCoverage} 个来源都未标记代理 / VPN，${riskEntries.length} 个风险分平均 ${risk}`);
@@ -518,14 +594,13 @@ export function score(evidence) {
   // the type is and whether the ASN agrees; any anonymity or abuse evidence forfeits it.
   const safeRecord = !torHard && anonAny < 0.15 && abuser.E < 0.15 && (risk ?? 0) < 25 && !attack.length && !dnsblListed.some(item => item.kind === 'abuse');
   if ((ipType === 'residential' || ipType === 'mobile') && safeRecord) {
-    const asnConf = asnInfo.inferred?.confidence ?? 0;
     const asnFactor = (asnCls === 'isp' || asnCls === 'mobile') && asnConf >= 0.6 ? 1
       : asnCls === 'isp' || asnCls === 'mobile' || !asnCls ? 0.5 : asnCls === 'business' || asnCls === 'education' || asnCls === 'government' ? 0.3 : 0;
     const pts = r1(3 * clamp((homeCertainty - 0.5) / 0.4, 0, 1) * asnFactor);
     const asnText = asnFactor === 1 ? 'ASN 也是运营商' : asnFactor === 0.5 ? 'ASN 类型未确认' : 'ASN 不是运营商';
     if (pts >= 0.3) {
       plus('eyeball', ipType === 'mobile' ? '纯净移动网络' : '纯净运营商 IP', pts,
-        `类型确定度 ${Math.round(homeCertainty * 100)}%，${asnText}，没有匿名或滥用记录；网站很少整段封禁这类地址`);
+        `类型确定度 ${Math.round(homeCertainty * 100)}%，${asnText}，没有匿名或滥用记录；网站很少整段封禁这类地址`, false, [typeDoubt]);
     }
   }
   if (native && nativeCertainty >= 0.7) plus('native', '原生 IP', 0.5, '注册地与定位一致');
@@ -572,7 +647,11 @@ export function score(evidence) {
   const typeShare = value => typeMix.filter(item => item.value === value).reduce((sum, item) => sum + item.share, 0);
   const hostE = typeShare('hosting'); const businessE = typeShare('business');
   const homeE = typeShare('residential'); const mobileE = typeShare('mobile');
-  const anonTop = anonFlags.vpn.E >= anonFlags.proxy.E ? anonFlags.vpn : anonFlags.proxy;
+  // VPN and proxy are each discounted by their own doubt before the stronger is taken, so a directly observed proxy keeps
+  // its full weight next to a database-only VPN label.
+  const anonTop = [anonFlags.vpn, anonFlags.proxy]
+    .map(t => ({ t, doubt: labelDoubt(t), E: t.E * (labelDoubt(t)?.k ?? 1) }))
+    .sort((a, b) => b.E - a.E || Boolean(a.doubt) - Boolean(b.doubt))[0];
   const geoSplitE = countries.length > 1 ? clamp((0.85 - countrySupport) / 0.35, 0, 1) : 0;
   const broadcastE = native === false ? 1 - nativeShare : 0;
   const leaseE = lease?.leased || lease?.possible ? clamp(lease.confidence / 0.7, 0, 1) : 0;
@@ -593,25 +672,27 @@ export function score(evidence) {
   const rcScore = recaptcha?.status === 'ok' && typeof recaptcha.score === 'number' ? recaptcha.score : null;
   const leakE = webrtc?.status === 'ok' && webrtc.leak ? (webrtc.leakCountryDiffers ? 1 : 0.75) : 0;
   const captchaPassed = (tsOutcome !== null || rcScore !== null) && (tsOutcome === null || tsOutcome === 'silent') && (rcScore === null || rcScore >= 0.7);
+  const nativeDoubt = native === false ? unsureLabel(nativeCertainty, '原生性') : null;
 
-  /** Signals several scenarios share; each scenario passes its own weight. */
+  /** Signals several scenarios share; each scenario passes its own weight. Doubts mark "?" exactly as in the IP score. */
   const signals = (hit, gate) => ({
-    anon: pts => hit('VPN / 代理标记', pts * anonAny, anonTop.yes ? voteText(anonTop) : ''),
-    hosting: pts => hit('机房 IP', pts * hostE, `IP 类型中机房占 ${Math.round(hostE * 100)}%`),
-    business: pts => hit('商业线路', pts * businessE, `IP 类型中商业宽带占 ${Math.round(businessE * 100)}%`),
-    broadcast: pts => hit('广播 IP', pts * broadcastE, `注册地 ${regCountry}，定位 ${country}`),
+    anon: pts => hit('VPN / 代理标记', pts * anonTop.t.E, anonTop.t.yes ? voteText(anonTop.t) : '', [anonTop.doubt]),
+    hosting: pts => hit('机房 IP', pts * hostE, `IP 类型中机房占 ${Math.round(hostE * 100)}%`, [typeDoubt, labelDoubt(hosting)]),
+    business: pts => hit('商业线路', pts * businessE, `IP 类型中商业宽带占 ${Math.round(businessE * 100)}%`, [typeDoubt]),
+    broadcast: pts => hit('广播 IP', pts * broadcastE, `注册地 ${regCountry}，定位 ${country}`, [nativeDoubt]),
     geoSplit: pts => hit('定位不一致', pts * geoSplitE, countries.map(item => `${item.value} ${Math.round(item.share * 100)}%`).join(' · ')),
-    lease: pts => hit('租赁地址段', pts * leaseE, lease?.reasons?.[0] || ''),
+    lease: pts => hit('租赁地址段', pts * leaseE, lease?.reasons?.[0] || '', [leaseDoubt]),
     shared: pts => hit('多设备共用出口', pts * sharedE, devices ? `Proxycheck 估计近期约 ${devices.address} 台设备` : ''),
-    risk: per => hit('欺诈 / 风险分', per * riskV, `综合风险分 ${riskV}`),
-    abuse: pts => hit('滥用 / 威胁记录', pts * abuseE, [abuser.yes ? voteText(abuser) : '', attack.map(item => item.name).join('、')].filter(Boolean).join('；')),
+    risk: per => hit('欺诈 / 风险分', per * riskV * riskK, `综合风险分 ${riskV}${riskK < 0.995 ? `，与代理 / 机房标记重叠，按 ${pct(riskK)} 计` : ''}`, [asnDoubt]),
+    abuse: pts => hit('滥用 / 威胁记录', pts * abuseE, [abuser.yes ? voteText(abuser) : '', attack.map(item => item.name).join('、')].filter(Boolean).join('；'), [attack.length ? null : labelDoubt(abuser)]),
     neighbours: pts => hit('同网段邻居上榜', pts * nbE, nb ? (nb.whole.length ? `${nb.prefix} 整段在 ${nb.whole.join('、')}` : `${nb.prefix} 内 ${nb.count} 个地址上榜`) : ''),
     asnAbuse: pts => hit('ASN 滥用密度高', pts * asnAbuseE, rep ? `约为全网平均的 ${rep.ratio} 倍` : ''),
     bots: pts => hit('人机流量：机器占比高', pts * botE, botText),
     webrtc: pts => hit('WebRTC 泄漏', pts * leakE, webrtc?.leakIPs?.join('、') || ''),
-    dns: (leak, cn, cross) => {
+    dns: (leak, cn, cross, split) => {
       if (dnsVerdict === 'leak-cn') hit('DNS 解析来自中国大陆', cn, dns.summary);
       else if (dnsVerdict === 'leak') hit('DNS 泄漏', leak, dns.summary);
+      else if (dnsVerdict === 'split') hit('DNS 分流解析', split, dns.summary);
       else if (dnsVerdict === 'public') hit('DNS 跨区解析', cross, dns.summary);
     },
     ecs: pts => { if (dns?.status === 'ok' && dns.ecsLeak) hit('EDNS 子网暴露位置', pts, dns.ecsSummary); },
@@ -631,7 +712,11 @@ export function score(evidence) {
   });
   const meter = (calm, build, note = '') => {
     const items = []; const gates = [];
-    const hit = (label, pts, detail = '') => { if (pts >= 0.5) items.push({ label, pts: r1(pts), detail }); };
+    const hit = (label, pts, detail = '', doubts = null) => {
+      const doubt = doubtOf(doubts);
+      const value = pts * (doubt?.k ?? 1);
+      if (value >= 0.5) items.push({ label, pts: r1(value), detail, ...(doubt && { unsure: true, why: doubt.why }) });
+    };
     const gate = (max, text) => gates.push({ max, text });
     build(hit, gate, signals(hit, gate));
     items.sort((a, b) => b.pts - a.pts);
@@ -646,17 +731,18 @@ export function score(evidence) {
     // Netflix-style catalogues: anonymity and datacenter lists first, then which region the IP resolves to.
     stream: meter('原生、非机房，解锁概率较高', (hit, gate, s) => {
       s.anon(91); s.hosting(55); s.business(8); s.broadcast(20); s.geoSplit(25); s.lease(8); s.shared(10);
-      hit('隐私中继', 10 * anonFlags.relay.E, voteText(anonFlags.relay));
-      s.ipv6(25); s.dns(10, 10, 4); s.ecs(8); s.risk(0.1);
+      hit('隐私中继', 10 * anonFlags.relay.E, voteText(anonFlags.relay), [labelDoubt(anonFlags.relay)]);
+      s.ipv6(25); s.dns(10, 10, 4, 3); s.ecs(8); s.risk(0.1);
       s.tor(60, 5, 'Tor 出口，流媒体基本都会拒绝');
     }),
     // AI services: supported region is a hard gate; anything that reveals a different real location weighs most.
+    // A datacenter address by itself matters little: AI services serve plenty of cloud and VPS traffic.
     ai: meter('地区受支持，风险较低', (hit, gate, s) => {
       if (country && AI_BLOCKED.has(country)) gate(0, `${country} 不在主流 AI 服务的支持地区`);
       else hit('部分数据库定位在不支持地区', 40 * blockedGeo.reduce((sum, item) => sum + item.share, 0), blockedGeo.map(item => `${item.value}：${item.by.join('、')}`).join('；'));
-      s.webrtc(35); s.dns(12, 25, 3); s.ecs(20); s.ipv6(15);
-      s.anon(33); s.hosting(15); s.risk(0.4); s.abuse(15);
-      s.tcp(12, 5); s.tz(4); s.lang(1.5); s.turnstile(10, 25); s.bots(8);
+      s.webrtc(35); s.dns(12, 25, 3, 6); s.ecs(20); s.ipv6(15);
+      s.anon(33); s.hosting(5); s.risk(0.4); s.abuse(15);
+      s.tcp(6, 2); s.tz(4); s.lang(1.5); s.turnstile(10, 25); s.bots(8);
       s.tor(60, 10, 'Tor 出口，AI 服务会拒绝或封号');
     }),
     // CAPTCHA frequency follows IP reputation; a measured pass outweighs the predictions.
@@ -674,14 +760,14 @@ export function score(evidence) {
       s.risk(0.6); s.anon(39); s.hosting(20); s.abuse(15);
       if (sfs?.appears > 0) hit('垃圾注册记录', 12 + (sfsRecent ? 5 : 0), `StopForumSpam 记录 ${sfs.appears} 次${sfs.lastseen ? `，最近 ${sfs.lastseen.slice(0, 10)}` : ''}`);
       s.broadcast(6); s.geoSplit(10); s.lease(5); s.shared(8); s.bots(8);
-      s.tz(6); s.lang(2.5); s.webrtc(20); s.dns(10, 15, 3); s.tcp(10, 5); s.ipv6(10);
+      s.tz(6); s.lang(2.5); s.webrtc(20); s.dns(10, 15, 3, 4); s.tcp(5, 2); s.ipv6(10);
       s.tor(70, 5, 'Tor 出口，注册和支付基本都会被拦截');
     }),
     // Direct SMTP: mail blacklists, dynamic (home / mobile) ranges and PTR decide; a server IP is normal here.
     mail: meter('有 PTR 且未上黑名单，适合直接发信', (hit, gate, s) => {
       hit('邮件黑名单', Math.min(60, 25 * mailListed.length), mailListed.map(item => item.name).join('、'));
       hit('滥用类黑名单', Math.min(30, 15 * abuseListed.length), abuseListed.map(item => item.name).join('、'));
-      hit(mobileE > homeE ? '移动网络地址段' : '家宽地址段', (55 * homeE + 60 * mobileE) * clamp(0.4 + homeCertainty, 0.6, 1), '收件方通常整段拒收家宽 / 移动段直接发来的邮件');
+      hit(mobileE > homeE ? '移动网络地址段' : '家宽地址段', (55 * homeE + 60 * mobileE) * clamp(0.4 + homeCertainty, 0.6, 1), '收件方通常整段拒收家宽 / 移动段直接发来的邮件', [typeDoubt]);
       if (ptrSource && !hostname) hit('没有反向解析（PTR）', 25, '多数收件方要求发信 IP 有 PTR');
       else if (hostname && (ptrSource?.type === 'residential' || ptrSource?.type === 'mobile')) hit('PTR 像动态地址', 15, hostname);
       s.abuse(15); s.neighbours(15); s.asnAbuse(15); s.anon(20); s.lease(5);
@@ -692,12 +778,16 @@ export function score(evidence) {
     social: meter(homeE + mobileE >= 0.5 ? '原生住宅 / 移动网络，适合社媒运营' : '没有明显风控信号', (hit, gate, s) => {
       s.hosting(55); s.anon(52); s.broadcast(20); s.geoSplit(15); s.business(5); s.lease(8); s.shared(15);
       s.risk(0.25); s.abuse(10); s.bots(8);
-      s.tz(8); s.lang(3); s.webrtc(20); s.dns(10, 15, 4); s.ipv6(15); s.tcp(12, 6);
+      s.tz(8); s.lang(3); s.webrtc(20); s.dns(10, 15, 4, 4); s.ipv6(15); s.tcp(6, 3);
       s.tor(80, 5, 'Tor 出口，社媒账号会被直接限制');
     }),
   };
 
   // ---------- verdict ----------
+  // Which uses suffer comes from their own meters, not from a fixed list.
+  const badUses = Object.entries(USE_NAMES).filter(([id]) => uses[id].level === 'bad').map(([, name]) => name);
+  const limited = badUses.length ? `${badUses.slice(0, 3).join('、')}${badUses.length > 3 ? '等' : ''}` : '';
+  const captchaNote = uses.captcha.level === 'bad' ? '，验证码会比较频繁' : '';
   const grade = gradeOf(total);
   const liveCategory = categories.find(category => category.id === 'live');
   const ipIssues = categories.filter(category => category.id !== 'live').flatMap(category => category.items).sort((a, b) => b.pts - a.pts);
@@ -705,16 +795,16 @@ export function score(evidence) {
   if (torHard) verdict = '这是 Tor 出口节点，几乎所有网站都会把你当高风险流量。';
   else if (ipScore >= 85 && liveCategory.penalty < 8) verdict = `${ipType === 'hosting' ? '机房 IP，但' : ''}没有明显风险标记，网站会把你当普通用户。`;
   else if (ipScore >= 85) verdict = `IP 本身很干净，但连接实测发现 ${liveCategory.items.slice(0, 2).map(item => item.label).join('、')}，网站仍可能识别出代理。`;
-  else if (ipScore >= 60) verdict = `整体可用，主要扣分在 ${ipIssues.slice(0, 2).map(item => item.label).join('、')}${liveCategory.items.length ? `；实测另有 ${liveCategory.items[0].label}` : ''}。`;
-  else verdict = `风险偏高：${ipIssues.slice(0, 3).map(item => item.label).join('、')}，注册、支付和 AI 服务都可能受限。`;
+  else if (ipScore >= 60) verdict = `整体可用，主要扣分在 ${ipIssues.slice(0, 2).map(item => item.label).join('、')}${liveCategory.items.length ? `；实测另有 ${liveCategory.items[0].label}` : ''}。${limited ? `${limited}不建议使用。` : ''}`;
+  else verdict = `风险偏高：${ipIssues.slice(0, 3).map(item => item.label).join('、')}，${limited ? `${limited}可能受限` : '部分网站可能要求额外验证'}${captchaNote}。`;
 
   const anonOf = Math.max(anonFlags.vpn.of, anonFlags.proxy.of);
   const confidence = scoredSources >= 10 && anonOf >= 3 ? 'high' : scoredSources >= 5 && anonOf >= 2 ? 'medium' : 'low';
 
   return {
-    score: total, ipScore, base: BASE, bonus: { items: bonusItems.sort((a, b) => b.pts - a.pts), total: r1(allBonus), cap: BONUS_CAP },
+    score: total, ipScore, base: BASE, bonus: { items: bonusItems.sort((a, b) => b.pts - a.pts), total: r1(allBonus), ip: r1(ipBonus), live: r1(liveBonus), cap: BONUS_CAP },
     liveDelta: evidence.self ? Math.round(liveBonus - penaltyOf('live')) : null, grade, verdict,
-    categories, checks, live, uses, notes,
+    categories, checks, live, uses, notes, asnTrust: asnTrust && { ...asnTrust, label: asnInfo.label || null, applied: Boolean(asnDoubt) },
     summary: { country, city, asn, org: orgRank[0]?.value || null, hostname, type: ipType, regCountry, native, ipTimezone, ipOffset, countryLangs, rdapName: rdap?.netname || null },
     confidence: { level: confidence, sources: scoredSources, pending, anonSources: anonOf },
   };

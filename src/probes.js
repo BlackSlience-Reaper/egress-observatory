@@ -15,15 +15,24 @@ export const EGRESS_ENDPOINTS = [
   { id: 'one', name: '1.1.1.1', url: 'https://1.1.1.1/cdn-cgi/trace', as: 'text', pick: body => traceParse(body).ip },
   { id: 'ipsb', name: 'IP.SB', url: 'https://api.ip.sb/ip', as: 'text', pick: body => String(body || '').trim() },
   { id: 'ipinfo', name: 'IPinfo', url: 'https://ipinfo.io/json', pick: data => data?.ip },
-  { id: 'ipip', name: 'IPIP.net（国内站点）', url: 'https://myip.ipip.net/json', pick: data => data?.data?.ip, domestic: true },
+  { id: 'ipip', name: 'IPIP.net（国内站点）', url: 'https://myip.ipip.net/json', pick: data => data?.data?.ip, place: data => ipipCountry(data?.data?.location), domestic: true },
 ];
+
+/** IPIP.net names the place in Chinese: ["中国", "广东", …], with Hong Kong, Macao and Taiwan as provinces of 中国. */
+function ipipCountry(location) {
+  if (!Array.isArray(location) || location[0] !== '中国') return null;
+  return { 香港: 'HK', 澳门: 'MO', 台湾: 'TW' }[location[1]] || 'CN';
+}
 
 export async function detectEgress(signal, onUpdate, accept = isPublicIP) {
   const results = EGRESS_ENDPOINTS.map(endpoint => ({ id: endpoint.id, name: endpoint.name, domestic: Boolean(endpoint.domestic), status: 'pending', ip: null }));
   await Promise.all(EGRESS_ENDPOINTS.map(async (endpoint, index) => {
     const result = await getJSON(endpoint.url, { signal, timeout: 8000, as: endpoint.as || 'json' });
     const parsed = result.ok ? parseIP(endpoint.pick(result.data)) : null;
-    results[index] = { ...results[index], status: parsed && accept(parsed.ip) ? 'ok' : 'error', ip: parsed?.ip || null, v: parsed?.v || null, ms: result.ms, raw: endpoint.as === 'text' && endpoint.id !== 'ipsb' ? traceParse(result.data) : null };
+    results[index] = {
+      ...results[index], status: parsed && accept(parsed.ip) ? 'ok' : 'error', ip: parsed?.ip || null, v: parsed?.v || null, ms: result.ms,
+      country: parsed && endpoint.place ? endpoint.place(result.data) : null, raw: endpoint.as === 'text' && endpoint.id !== 'ipsb' ? traceParse(result.data) : null,
+    };
     onUpdate?.(results);
   }));
   return summarizeEgress(results);
@@ -34,13 +43,15 @@ export function summarizeEgress(results) {
   const foreign4 = [...new Set(ok.filter(item => !item.domestic && item.v === 4).map(item => item.ip))];
   const v4 = results.find(item => item.id === 'ipify4' && item.ip)?.ip || ok.find(item => item.v === 4 && !item.domestic)?.ip || null;
   const v6 = results.find(item => item.id === 'ipify6' && item.ip)?.ip || ok.find(item => item.v === 6 && !item.domestic)?.ip || null;
-  const domestic = ok.find(item => item.domestic)?.ip || null;
+  const domesticHit = ok.find(item => item.domestic) || null;
+  const domestic = domesticHit?.ip || null;
+  const domesticCountry = domesticHit?.country || null;
   const domesticDiffers = Boolean(domestic && v4 && !sameIP(domestic, v4) && !sameIP(domestic, v6));
   const split = foreign4.length > 1;
   const trace = results.find(item => item.id === 'cloudflare' && item.raw)?.raw || results.find(item => item.id === 'one' && item.raw)?.raw || null;
   const summary = split ? `不同海外网站看到 ${foreign4.length} 个 IPv4：${foreign4.join('、')}`
     : domesticDiffers ? `国内站点看到 ${domestic}，海外站点看到 ${v4}（分流规则生效）` : `${ok.length} 个网站看到同一出口`;
-  return { results, v4, v6, domestic, domesticDiffers, split, summary, trace, ips: [...new Set(ok.map(item => item.ip))] };
+  return { results, v4, v6, domestic, domesticCountry, domesticDiffers, split, summary, trace, ips: [...new Set(ok.map(item => item.ip))] };
 }
 
 // ---------- WebRTC ----------
@@ -96,14 +107,17 @@ export async function probeDNS(signal) {
   if (bash.ok && Array.isArray(bash.data)) {
     for (const entry of bash.data) {
       if (entry.type !== 'dns' || !parseIP(entry.ip)) continue;
-      resolvers.push({ ip: entry.ip, country: countryCode(entry.country), asn: asnNumber(entry.asn), org: entry.org || String(entry.asn || '').replace(/^AS\d+\s*/, '') || null });
+      resolvers.push({ ip: entry.ip, country: countryCode(entry.country), asn: asnNumber(entry.asn), org: entry.org || String(entry.asn || '').replace(/^AS\d+\s*/, '') || null, probes: ['bashws'] });
     }
   }
+  // Each resolver keeps the probe (domain batch) that saw it: one probe's lookups never vouch for another's.
   let ecs = null; let ednsResolver = null;
   if (ednsResult.ok && ednsResult.data?.dns) {
     const geo = String(ednsResult.data.dns.geo || '');
     ednsResolver = { ip: ednsResult.data.dns.ip, country: countryCode(geo.split(' - ')[0]), org: geo.split(' - ')[1] || null };
-    if (!resolvers.some(item => sameIP(item.ip, ednsResolver.ip))) resolvers.push({ ...ednsResolver, asn: null });
+    const seen = resolvers.find(item => sameIP(item.ip, ednsResolver.ip));
+    if (seen) seen.probes.push('edns');
+    else resolvers.push({ ...ednsResolver, asn: null, probes: ['edns'] });
     if (ednsResult.data.edns?.ip) {
       const ecsGeo = String(ednsResult.data.edns.geo || '');
       ecs = { subnet: ednsResult.data.edns.ip, country: countryCode(ecsGeo.split(' - ')[0]), org: ecsGeo.split(' - ')[1] || null };
@@ -113,24 +127,53 @@ export async function probeDNS(signal) {
   return { status: 'ok', resolvers, ecs };
 }
 
-/** Classify resolvers against the egress location. */
-export function classifyDNS(raw, { country, asn }) {
+/**
+ * Classify resolvers against the egress location.
+ * With split routing (a domestic site sees a different address than foreign ones), rule-based clients resolve domains
+ * that no rule names through the domestic DNS first, to match GEOIP rules, and the proxy resolves them again remotely.
+ * HTTP split routing alone does not show that: a SOCKS setup that resolves locally also lets domestic sites go direct.
+ * So a mainland resolver counts as 'split' only when the same probe's domains also reached a resolver on the proxy side
+ * (the egress's network or country); otherwise it stays a leak. The bash.ws and EDNS probes use separate domains, so
+ * each is judged on its own lookups. A mainland resolver is never a harmless public one.
+ */
+export function classifyDNS(raw, { country, asn }, egress = null) {
   if (!raw || raw.status !== 'ok') return raw;
-  const kinds = raw.resolvers.map(resolver => {
+  const splitRouting = Boolean(egress?.domesticDiffers);
+  const home = egress?.domesticCountry || 'CN';
+  const isHome = place => Boolean(place) && (place === home || place === 'CN');
+  const base = raw.resolvers.map(resolver => {
     let kind;
     if (asn && resolver.asn === asn) kind = 'own';
     else if (country && resolver.country === country) kind = 'same';
-    else if (PUBLIC_RESOLVER_ASNS.has(resolver.asn) || /cloudflare|google|quad9|opendns|nextdns|adguard/i.test(resolver.org || '')) kind = 'public';
     else if (resolver.country === 'CN' && country !== 'CN') kind = 'leak-cn';
+    else if (PUBLIC_RESOLVER_ASNS.has(resolver.asn) || /cloudflare|google|quad9|opendns|nextdns|adguard/i.test(resolver.org || '')) kind = 'public';
     else kind = 'leak';
     return { ...resolver, kind };
   });
-  const order = ['own', 'same', 'public', 'leak', 'leak-cn'];
+  const probesOf = item => item.probes || [];
+  const remoteIn = probe => base.some(item => (item.kind === 'own' || item.kind === 'same') && probesOf(item).includes(probe));
+  const kinds = base.map(item => (splitRouting && (item.kind === 'leak-cn' || item.kind === 'leak') && isHome(item.country) && probesOf(item).some(remoteIn)
+    ? { ...item, kind: 'split' } : item));
+  const splitDNS = kinds.some(item => item.kind === 'split');
+  const order = ['own', 'same', 'public', 'split', 'leak', 'leak-cn'];
   const verdict = country ? kinds.reduce((worst, item) => order.indexOf(item.kind) > order.indexOf(worst) ? item.kind : worst, 'own') : null;
   const countries = [...new Set(kinds.map(item => item.country).filter(Boolean))];
-  const summary = { own: '解析器属于出口同一网络', same: `解析器与出口同在 ${country}`, public: `公共 DNS 在 ${countries.join('/')} 解析，出口在 ${country}`, leak: `解析器位于 ${countries.join('/')}，与出口 ${country} 不符`, 'leak-cn': '解析请求从中国大陆发出，暴露真实位置' }[verdict] || '';
+  const splitCountries = [...new Set(kinds.filter(item => item.kind === 'split').map(item => item.country))];
+  const noRemote = splitRouting && kinds.some(item => (item.kind === 'leak-cn' || item.kind === 'leak') && isHome(item.country))
+    ? '；虽然国内外分流生效，但代理端没有解析同一批测试域名，经代理的网站也可能在本地解析' : '';
+  const summary = {
+    own: '解析器属于出口同一网络', same: `解析器与出口同在 ${country}`, public: `公共 DNS 在 ${countries.join('/')} 解析，出口在 ${country}`,
+    split: `分流规则生效：测试域名先经 ${splitCountries.join('/')} 的本地 DNS 解析（用于匹配分流规则），代理端也解析了同一批域名，说明经代理的连接在远端解析。没被代理规则列出的域名都会先经过本地 DNS`,
+    leak: `解析器位于 ${countries.join('/')}，与出口 ${country} 不符${noRemote}`, 'leak-cn': `解析请求从中国大陆发出，暴露真实位置${noRemote}`,
+  }[verdict] || '';
   const ecsLeak = Boolean(raw.ecs?.country && country && raw.ecs.country !== country);
-  return { ...raw, resolvers: kinds, verdict, summary, ecsLeak, ecsSummary: ecsLeak ? `EDNS 客户端子网 ${raw.ecs.subnet} 位于 ${raw.ecs.country}` : null };
+  // The EDNS probe reports a single resolver, so it can never show its own lookup on both sides: the forwarded subnet
+  // always counts as exposed, with the split-routing path named when it applies.
+  const ecsHome = ecsLeak && splitRouting && isHome(raw.ecs.country);
+  return {
+    ...raw, resolvers: kinds, verdict, summary, splitRouting, splitDNS, ecsLeak,
+    ecsSummary: ecsLeak ? `EDNS 客户端子网 ${raw.ecs.subnet} 位于 ${raw.ecs.country}${ecsHome ? '；分流时由本地 DNS 转发，没被代理规则列出的域名，其权威服务器都能看到这个子网' : ''}` : null,
+  };
 }
 
 // ---------- TCP/IP fingerprint ----------
