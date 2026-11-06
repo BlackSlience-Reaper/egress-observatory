@@ -1,8 +1,9 @@
 """Bounded, fixed-site browser fallbacks for unavailable provider records."""
 import asyncio
+import os
 import time
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 SITES = {
     "iphub": "https://iphub.info/?ip={ip}",
@@ -17,6 +18,36 @@ SITES = {
 }
 
 
+def lookup_proxy():
+    """Playwright proxy from EGRESS_LOOKUP_PROXY, so page lookups can leave through another exit."""
+    value = os.environ.get("EGRESS_LOOKUP_PROXY", "").strip()
+    if not value:
+        return None
+    url = urlsplit(value if "://" in value else "http://" + value)
+    try:
+        valid = url.scheme in {"http", "https", "socks5"} and url.hostname and url.port
+    except ValueError:
+        valid = False
+    if not valid:
+        raise ValueError("EGRESS_LOOKUP_PROXY 应写成 http://主机:端口、http://用户名:密码@主机:端口 或 socks5://主机:端口")
+    if url.scheme == "socks5" and url.username:
+        raise ValueError("Chromium 不支持带认证的 SOCKS5 代理，请改用 HTTP 代理或本机转发端口")
+    proxy = {"server": url.scheme + "://" + url.netloc.rpartition("@")[2]}
+    if url.username:
+        proxy.update(username=unquote(url.username), password=unquote(url.password or ""))
+    return proxy
+
+
+def launch_options(api):
+    options = {"headless": True}
+    if not Path(api.chromium.executable_path).exists():
+        options["channel"] = "chrome"
+    proxy = lookup_proxy()
+    if proxy:
+        options["proxy"] = proxy
+    return options
+
+
 def lookup_sources(ip):
     return asyncio.run(_lookup(ip))
 
@@ -26,10 +57,7 @@ async def _lookup(ip):
     extractor = (Path(__file__).parent / "src" / "page-extract.js").read_text(encoding="utf-8").replace("export function", "function")
     evaluate = "({provider,ip,raw}) => {" + extractor + "; return extractProviderPage(provider,ip,raw); }"
     async with async_playwright() as api:
-        options = {"headless": True}
-        if not Path(api.chromium.executable_path).exists():
-            options["channel"] = "chrome"
-        browser = await api.chromium.launch(**options)
+        browser = await api.chromium.launch(**launch_options(api))
         context = await browser.new_context(locale="en-US", viewport={"width": 1440, "height": 1000})
         slots = asyncio.Semaphore(3)
 

@@ -126,6 +126,15 @@ python -m pip install playwright
 python -m playwright install chromium
 ```
 
+本机查询服务默认用这台电脑的出口打开来源网页。要换一个出口，启动前设置 `EGRESS_LOOKUP_PROXY`，写成 `http://主机:端口`、`http://用户名:密码@主机:端口` 或不带认证的 `socks5://主机:端口`。启动时窗口会显示正在使用的代理，不显示用户名和密码。Windows 上也可以把它设成用户环境变量，双击“启动网站.cmd”时同样生效。
+
+```powershell
+$env:EGRESS_LOOKUP_PROXY = "http://127.0.0.1:7890"
+python local_server.py
+```
+
+这个设置只管 4188 端口的网页查询。页面里的其他请求走浏览器自己的网络；要一起换出口，需要给浏览器单独设代理，并阻止 WebRTC 绕过代理，例如 Chrome 的 `--proxy-server` 和 `--force-webrtc-ip-handling-policy=disable_non_proxied_udp`。
+
 运行测试：
 
 ```bash
