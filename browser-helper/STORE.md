@@ -159,6 +159,15 @@ Optional. Upload `-chrome.zip` with the English listing. Until it is listed, the
 
 Use real UI captures, each a full-bleed 1280×800 PNG with square corners and no added padding. Enable IP masking and inspect the address bar, tab titles, tooltips and report fields for actual IPs, credentials and private content. Use only `203.0.113.10` for illustrative addresses; do not fabricate provider results or store availability.
 
+已拍摄（`browser-helper/store/`，不进安装包）：在 Firefox 159 中用 v1.3.4 打开线上页面，查询一个不属于维护者的公开地址并开启“隐藏 IP”，图中不显示地址。自动化浏览器会触发更多 Cloudflare 验证，所以 6 个来源停在“待验证”。
+
+Captured (in `browser-helper/store/`, not packaged): the live page in Firefox 159 with helper v1.3.4, querying a public address that is not the maintainer's, with IP masking on and no address visible. The automated browser draws more Cloudflare challenges, so six providers wait for verification.
+
+- [`1-multi-source-types.png`](store/1-multi-source-types.png)：对应下方 1 与 3，插件行、补齐的类型与“去验证 / 停止等待”。Items 1 and 3: the helper row, supplied types and the verification and stop controls.
+- [`2-per-provider-details.png`](store/2-per-provider-details.png)：对应 2，只取插件通道的成功结果与耗时。Item 2, limited to the helper channel's results and timing.
+
+4 需要浏览器标签栏，5 需要商店上线后在对应浏览器中拍摄，留给维护者。Item 4 needs the browser's tab strip and item 5 needs a live listing, so both remain for the maintainer.
+
 1. **多源类型 / Multi-source types**：展示“多源 IP 类型”中的实际插件字段与插件连接状态，让用户看到扩展补齐的使用类型与公司类型。Show actual helper-supplied usage/company fields and the connected helper status.
 2. **逐源查询详情 / Per-provider query details**：展开“查询详情”，展示插件、API 与服务器通道，以及成功、失败原因和耗时。Expand query details to show helper, API and server channels with real outcomes and timing.
 3. **手动验证等待 / Manual verification wait**：出现真实验证等待时，展示 Egress 的“去验证”和“停止等待”入口；不拍摄验证码解题内容。Show the real pending-verification state and its verification/stop controls without capturing challenge solutions.
