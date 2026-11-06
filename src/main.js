@@ -4,17 +4,17 @@ import { setupImport, supplementTypes, readReport, readRiskReport, mergeTypeRepo
 import { setupProviderImport, readProviderReport, mergeProviderPage, lookupChromePages } from './provider-pages.js?v=4.3';
 /** Orchestration: detect the egress, fan out every check, rescore as results arrive. */
 import { API_BASE } from '../config.js?v=cloud3';
-import { mock } from './mock.js?v=2';
+import { mock } from './mock.js?v=3';
 import { lookupPage } from './page-lookups.js?v=7';
 import { getJSON, parseIP, isPublicIP, sameIP, maskIP, maskText } from './util.js?v=4.1';
-import { SOURCES, runSource } from './sources.js?v=3.6';
-import { setupOwnKeys } from './own-keys.js?v=3';
+import { SOURCES, runSource } from './sources.js?v=3.7';
+import { setupOwnKeys } from './own-keys.js?v=4';
 import { DNSBLS, checkDNSBL, CIDR_LISTS, checkCIDRList, asnAbuseDensity } from './blocklists.js';
 import { fetchASN, inferASN, detectLease } from './asn.js?v=4.3';
 import { detectEgress, summarizeEgress, probeWebRTC, probeDNS, classifyDNS, probeTCP, probeEnvironment, probeIPv6, classifyIPv6, traceProbe } from './probes.js?v=5';
 import { runTurnstile, runRecaptcha } from './captcha.js?v=4.2';
 import { score } from './score.js?v=5.2';
-import * as view from './render.js?v=4.32';
+import * as view from './render.js?v=4.33';
 
 const $ = id => document.getElementById(id);
 // In mock mode only documentation addresses can be checked, so real ones never meet fixture answers.
@@ -205,7 +205,13 @@ async function startRun(input, fetchPages = true) {
   app.run?.controller.abort();
   const controller = new AbortController();
   const signal = controller.signal;
-  const egress = app.egress || await Promise.race([app.egressPromise, new Promise(resolve => setTimeout(resolve, 4000))]) || app.egress;
+  let egress = app.egress || await Promise.race([app.egressPromise, new Promise(resolve => setTimeout(resolve, 4000))]) || app.egress;
+  // Mock mode treats whatever address is checked as this browser's exit (unless &self=0): the fixtures switch to it,
+  // so the live checks run on fixture answers for it too.
+  if (mock?.asSelf && !egress?.ips?.some(ip => sameIP(ip, parsed.ip))) {
+    mock.useExit(parsed.ip);
+    egress = await refreshEgress({ autoStart: false });
+  }
   const self = Boolean(egress?.ips?.some(ip => sameIP(ip, parsed.ip)));
   const run = {
     ip: parsed.ip, v: parsed.v, self, controller, healthReady, startedAt: Date.now(),
@@ -214,7 +220,7 @@ async function startRun(input, fetchPages = true) {
   app.run = run;
   $('ip-input').value = parsed.ip;
   const url = new URL(location.href);
-  if (self) url.searchParams.delete('ip'); else url.searchParams.set('ip', parsed.ip);
+  if (self && !mock?.asSelf) url.searchParams.delete('ip'); else url.searchParams.set('ip', parsed.ip);
   history.replaceState(null, '', url);
   view.crossLinks(parsed.ip);
   $('ipinfo-page-link').href = 'https://ipinfo.io/' + encodeURIComponent(parsed.ip);
@@ -609,5 +615,7 @@ view.renderHelperDownload();
 view.applyMask(app.masked);
 view.renderHistory(readHistory());
 view.renderEgress(null, null, app);
+// A mock check opened by URL is the exit from the start, so the first detection already reports it.
+if (mock?.asSelf && requested && parseIP(requested) && checkable(parseIP(requested).ip)) mock.useExit(parseIP(requested).ip);
 refreshEgress({ autoStart: !requested });
 if (requested) startRun(requested);
