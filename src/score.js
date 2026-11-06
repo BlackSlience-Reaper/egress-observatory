@@ -521,8 +521,7 @@ export function score(evidence) {
     const pts = { own: 0, same: 0, public: 3, split: 2, leak: 8, 'leak-cn': 12 }[dns.verdict] ?? 0;
     live.dns = pts >= 8 ? 'bad' : pts > 0 ? 'warn' : 'good';
     if (pts) add('live', 'dns', { public: 'DNS 跨区解析', split: 'DNS 分流解析' }[dns.verdict] || 'DNS 泄漏', pts, dns.summary);
-    if (dns.ecsSplit) { add('live', 'dns-ecs', 'EDNS 子网暴露位置（分流）', 3, dns.ecsSummary); }
-    else if (dns.ecsLeak) { live.dns = 'bad'; add('live', 'dns-ecs', 'EDNS 子网暴露位置', 10, dns.ecsSummary); }
+    if (dns.ecsLeak) { live.dns = 'bad'; add('live', 'dns-ecs', 'EDNS 子网暴露位置', 10, dns.ecsSummary); }
   }
   // Any proxy re-originates TCP from its own server, and few sites read SYN fingerprints: a light deduction.
   const tcp = probes.tcp;
@@ -696,11 +695,7 @@ export function score(evidence) {
       else if (dnsVerdict === 'split') hit('DNS 分流解析', split, dns.summary);
       else if (dnsVerdict === 'public') hit('DNS 跨区解析', cross, dns.summary);
     },
-    // Under split routing the subnet only reaches the authorities of domains no proxy rule names: 30%.
-    ecs: pts => {
-      if (dns?.status === 'ok' && dns.ecsSplit) hit('EDNS 子网暴露位置（分流）', 0.3 * pts, dns.ecsSummary);
-      else if (dns?.status === 'ok' && dns.ecsLeak) hit('EDNS 子网暴露位置', pts, dns.ecsSummary);
-    },
+    ecs: pts => { if (dns?.status === 'ok' && dns.ecsLeak) hit('EDNS 子网暴露位置', pts, dns.ecsSummary); },
     ipv6: pts => { if (live.ipv6 === 'bad') hit('IPv6 走了别的出口', pts, ipv6.summary); },
     tcp: (relay, os) => {
       if (tcpVerdict === 'relay') hit('TCP 指纹像代理转发', relay, tcp.summary);

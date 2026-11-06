@@ -107,14 +107,17 @@ export async function probeDNS(signal) {
   if (bash.ok && Array.isArray(bash.data)) {
     for (const entry of bash.data) {
       if (entry.type !== 'dns' || !parseIP(entry.ip)) continue;
-      resolvers.push({ ip: entry.ip, country: countryCode(entry.country), asn: asnNumber(entry.asn), org: entry.org || String(entry.asn || '').replace(/^AS\d+\s*/, '') || null });
+      resolvers.push({ ip: entry.ip, country: countryCode(entry.country), asn: asnNumber(entry.asn), org: entry.org || String(entry.asn || '').replace(/^AS\d+\s*/, '') || null, probes: ['bashws'] });
     }
   }
+  // Each resolver keeps the probe (domain batch) that saw it: one probe's lookups never vouch for another's.
   let ecs = null; let ednsResolver = null;
   if (ednsResult.ok && ednsResult.data?.dns) {
     const geo = String(ednsResult.data.dns.geo || '');
     ednsResolver = { ip: ednsResult.data.dns.ip, country: countryCode(geo.split(' - ')[0]), org: geo.split(' - ')[1] || null };
-    if (!resolvers.some(item => sameIP(item.ip, ednsResolver.ip))) resolvers.push({ ...ednsResolver, asn: null });
+    const seen = resolvers.find(item => sameIP(item.ip, ednsResolver.ip));
+    if (seen) seen.probes.push('edns');
+    else resolvers.push({ ...ednsResolver, asn: null, probes: ['edns'] });
     if (ednsResult.data.edns?.ip) {
       const ecsGeo = String(ednsResult.data.edns.geo || '');
       ecs = { subnet: ednsResult.data.edns.ip, country: countryCode(ecsGeo.split(' - ')[0]), org: ecsGeo.split(' - ')[1] || null };
@@ -129,8 +132,9 @@ export async function probeDNS(signal) {
  * With split routing (a domestic site sees a different address than foreign ones), rule-based clients resolve domains
  * that no rule names through the domestic DNS first, to match GEOIP rules, and the proxy resolves them again remotely.
  * HTTP split routing alone does not show that: a SOCKS setup that resolves locally also lets domestic sites go direct.
- * So mainland resolvers count as 'split' only when the same probe domains also reached a resolver on the proxy side
- * (the egress's network or country); otherwise they stay a leak. A mainland resolver is never a harmless public one.
+ * So a mainland resolver counts as 'split' only when the same probe's domains also reached a resolver on the proxy side
+ * (the egress's network or country); otherwise it stays a leak. The bash.ws and EDNS probes use separate domains, so
+ * each is judged on its own lookups. A mainland resolver is never a harmless public one.
  */
 export function classifyDNS(raw, { country, asn }, egress = null) {
   if (!raw || raw.status !== 'ok') return raw;
@@ -146,25 +150,29 @@ export function classifyDNS(raw, { country, asn }, egress = null) {
     else kind = 'leak';
     return { ...resolver, kind };
   });
-  const remote = base.filter(item => item.kind === 'own' || item.kind === 'same');
-  const splitDNS = splitRouting && remote.length > 0;
-  const kinds = base.map(item => (splitDNS && (item.kind === 'leak-cn' || item.kind === 'leak') && isHome(item.country) ? { ...item, kind: 'split' } : item));
+  const probesOf = item => item.probes || [];
+  const remoteIn = probe => base.some(item => (item.kind === 'own' || item.kind === 'same') && probesOf(item).includes(probe));
+  const kinds = base.map(item => (splitRouting && (item.kind === 'leak-cn' || item.kind === 'leak') && isHome(item.country) && probesOf(item).some(remoteIn)
+    ? { ...item, kind: 'split' } : item));
+  const splitDNS = kinds.some(item => item.kind === 'split');
   const order = ['own', 'same', 'public', 'split', 'leak', 'leak-cn'];
   const verdict = country ? kinds.reduce((worst, item) => order.indexOf(item.kind) > order.indexOf(worst) ? item.kind : worst, 'own') : null;
   const countries = [...new Set(kinds.map(item => item.country).filter(Boolean))];
   const splitCountries = [...new Set(kinds.filter(item => item.kind === 'split').map(item => item.country))];
-  const noRemote = splitRouting && !splitDNS ? '；虽然国内外分流生效，但代理端没有解析测试域名，经代理的网站也在本地解析' : '';
+  const noRemote = splitRouting && kinds.some(item => (item.kind === 'leak-cn' || item.kind === 'leak') && isHome(item.country))
+    ? '；虽然国内外分流生效，但代理端没有解析同一批测试域名，经代理的网站也可能在本地解析' : '';
   const summary = {
     own: '解析器属于出口同一网络', same: `解析器与出口同在 ${country}`, public: `公共 DNS 在 ${countries.join('/')} 解析，出口在 ${country}`,
     split: `分流规则生效：测试域名先经 ${splitCountries.join('/')} 的本地 DNS 解析（用于匹配分流规则），代理端也解析了同一批域名，说明经代理的连接在远端解析。没被代理规则列出的域名都会先经过本地 DNS`,
     leak: `解析器位于 ${countries.join('/')}，与出口 ${country} 不符${noRemote}`, 'leak-cn': `解析请求从中国大陆发出，暴露真实位置${noRemote}`,
   }[verdict] || '';
   const ecsLeak = Boolean(raw.ecs?.country && country && raw.ecs.country !== country);
-  // The domestic resolver forwarding the visitor's own subnet is the same rule-matching path, once remote resolution is shown.
-  const ecsSplit = ecsLeak && splitDNS && isHome(raw.ecs.country);
+  // The EDNS probe reports a single resolver, so it can never show its own lookup on both sides: the forwarded subnet
+  // always counts as exposed, with the split-routing path named when it applies.
+  const ecsHome = ecsLeak && splitRouting && isHome(raw.ecs.country);
   return {
-    ...raw, resolvers: kinds, verdict, summary, splitRouting, splitDNS, ecsLeak, ecsSplit,
-    ecsSummary: ecsLeak ? `EDNS 客户端子网 ${raw.ecs.subnet} 位于 ${raw.ecs.country}${ecsSplit ? '，来自分流时的本地解析' : ''}` : null,
+    ...raw, resolvers: kinds, verdict, summary, splitRouting, splitDNS, ecsLeak,
+    ecsSummary: ecsLeak ? `EDNS 客户端子网 ${raw.ecs.subnet} 位于 ${raw.ecs.country}${ecsHome ? '；分流时由本地 DNS 转发，没被代理规则列出的域名，其权威服务器都能看到这个子网' : ''}` : null,
   };
 }
 
