@@ -51,7 +51,7 @@ Issue 写清目标、范围、实际入口、完成条件和依赖；直接来�
 - [OpenAI PR Review](https://github.com/BlackSlience-Reaper/egress-observatory/actions/workflows/openai-review.yml)：可信写权限触发者的同仓库非草稿 PR 自动审查；fork PR 由维护者输入编号手动运行。模型和推理强度以工作流为准，当前为 `gpt-6-astra` / `medium`。结果只发表静态意见，不批准或自动合并。
 - [PR Labels](https://github.com/BlackSlience-Reaper/egress-observatory/actions/workflows/pr-labels.yml)：按变更路径添加 area 与 documentation 标签；维护者也可输入当前或历史 PR 编号手动运行。只读取可信配置与 PR 文件列表。
 - [Copilot Setup Steps](https://github.com/BlackSlience-Reaper/egress-observatory/actions/workflows/copilot-setup-steps.yml)：从 Actions 的 Run workflow 或 `gh workflow run copilot-setup-steps.yml --ref master` 准备可运行环境。
-- [Prepare Helper Release](https://github.com/BlackSlience-Reaper/egress-observatory/actions/workflows/helper-release.yml)：从默认分支生成绑定 commit 的 draft Release、离线包、Chrome/Firefox 商店包和 SHA256SUMS。不会自动提交商店。
+- [Prepare Helper Release](https://github.com/BlackSlience-Reaper/egress-observatory/actions/workflows/helper-release.yml)：从默认分支生成绑定 commit 的 draft Release，自定义附件仅包含离线包、Chrome/Firefox 商店包三个 ZIP。不会自动提交商店。
 - [Deploy Pages](https://github.com/BlackSlience-Reaper/egress-observatory/actions/workflows/deploy-page.yml)：仅由维护者主动点击 Run workflow，选择 `master` 后部署该次选定的 commit。用户也可明确要求 agent 运行部署；普通任务的合并与验收不触发此入口。
 - Dependabot 每周检查 GitHub Actions 和 Python 依赖，分组提交普通版本更新 PR；更新后仍需要说明实际入口的观察结果。
 - CodeQL、Dependabot alerts、secret scanning 和 push protection 在 GitHub Security 设置中管理。静态扫描用于定位缺陷，不作为功能可用的证明。
