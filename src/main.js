@@ -212,15 +212,17 @@ async function startRun(input, fetchPages = true) {
   const controller = new AbortController();
   const signal = controller.signal;
   let egress = app.egress || await Promise.race([app.egressPromise, new Promise(resolve => setTimeout(resolve, 4000))]) || app.egress;
+  // A newer check started while this one waited for the exit: it wins, and this one stops before it could switch the
+  // mock exit or start another exit detection.
+  if (seq !== app.runSeq) return;
   // Mock mode treats whatever address is checked as this browser's exit (unless &self=0): the fixtures switch to it,
   // so the live checks and the lists (downloaded again) answer for it too.
   if (mock?.asSelf && !egress?.ips?.some(ip => sameIP(ip, parsed.ip))) {
     mock.useExit(parsed.ip);
     forgetLists();
     egress = await refreshEgress({ autoStart: false });
+    if (seq !== app.runSeq) return;
   }
-  // A newer check started while this one waited for the exit: it wins, this one stops here.
-  if (seq !== app.runSeq) return;
   const self = Boolean(egress?.ips?.some(ip => sameIP(ip, parsed.ip)));
   const run = {
     ip: parsed.ip, v: parsed.v, self, controller, healthReady, startedAt: Date.now(),
