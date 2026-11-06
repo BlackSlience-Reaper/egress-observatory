@@ -1,4 +1,4 @@
-# Egress 浏览器扩展 v1.3.4
+# Egress 浏览器扩展 v1.3.5
 
 [隐私政策 / Privacy policy](https://blackslience-reaper.github.io/egress-observatory/privacy.html)
 
@@ -15,7 +15,7 @@
 
 ## 离线安装
 
-适用于 Chrome、Edge 等 Chromium 浏览器，供访问不了 Chrome 网上应用店或想先审查代码时使用：[下载 ZIP](https://blackslience-reaper.github.io/egress-observatory/downloads/egress-browser-helper-v1.3.4.zip)。
+适用于 Chrome、Edge 等 Chromium 浏览器，供访问不了 Chrome 网上应用店或想先审查代码时使用：[下载 ZIP](https://blackslience-reaper.github.io/egress-observatory/downloads/egress-browser-helper-v1.3.5.zip)。
 
 解压后，在 `chrome://extensions`（Edge 为 `edge://extensions`）开启开发者模式，加载 `browser-helper` 文件夹。离线安装不会自动更新：更新时替换原目录文件并点“重新加载”，再刷新 Egress 页面。点击“查询”或“重新检测”触发读取。
 
@@ -36,6 +36,8 @@ Firefox 正式版只能长期安装签名过的扩展，请从 Firefox 附加组
 在仓库根目录运行 `python browser-helper/pack.py`（macOS / Linux 可用 `python3`），从 manifest 读取版本，同步下载链接、标题和商店链接，生成 `downloads/` 离线 ZIP 和 `dist/` 中各浏览器的上传 ZIP：`-chrome.zip` 用于 Chrome 网上应用店、Edge 加载项与 Opera 加载项，`-firefox.zip` 用于 Firefox 附加组件。商店包的根目录直接包含 manifest，省略 README。
 
 两种包的代码相同，`manifest.firefox.json` 以 JSON Merge Patch 改写 manifest：后台改用 `background.scripts`；本地页面匹配不带端口的 `127.0.0.1` / `localhost`，因为 Firefox 的匹配模式不认端口，后台仍只接受 4187 端口发来的消息；扩展页 CSP 去掉 Firefox 默认的 `upgrade-insecure-requests`，否则 ip-api.com 的 HTTP 接口会被升级为 HTTPS 并返回 403；另加 gecko ID、最低版本 140 和数据收集声明。维护者发布材料见仓库中的 [STORE.md](https://github.com/BlackSlience-Reaper/egress-observatory/blob/master/browser-helper/STORE.md)。
+
+v1.3.5 修复扩展重新加载或更新后，已打开的 Egress 页面报“Extension context invalidated”并卡在“查询中”：Chrome 不会给已打开的页面换上新脚本，旧脚本现在提示“插件已重新加载或更新，请刷新本页”，正在进行的查询随即结束，不再一直等待。
 
 v1.3.4 修复 Cloudflare 验证页已带 403 状态加载完成、提示文字尚未显示时被误报为“拒绝访问”：插件现在继续等待，随后显示“待验证”。新增 Firefox 包，在 Firefox 159 上跑通查询、人机验证等待、临时分组与停止后清理。
 
