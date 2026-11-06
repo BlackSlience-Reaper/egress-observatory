@@ -1,8 +1,15 @@
 # 商店发布材料 / Store listing materials
 
-适用于 Chrome Web Store 与 Microsoft Edge Add-ons。商店尚未发布，`src/helper-stores.js` 中的 URL 均为 `null`。开发者账号注册、付款、身份核验和提交由维护者本人完成。Firefox 打包与 AMO 提交属于独立的 [#28](https://github.com/BlackSlience-Reaper/egress-observatory/issues/28)，此处的 Chrome ZIP 不用于 AMO。
+适用于 Chrome 网上应用店、Microsoft Edge 加载项、Firefox 附加组件（AMO）与可选的 Opera 加载项；Safari 取决于 [#29](https://github.com/BlackSlience-Reaper/egress-observatory/issues/29) 的评估结论。商店尚未发布，`src/helper-stores.js` 中的 URL 均为 `null`。开发者账号注册、付款、身份核验和提交由维护者本人完成。
 
-For Chrome Web Store and Microsoft Edge Add-ons. Store listings are pending; all URLs in `src/helper-stores.js` are `null`. The maintainer handles account registration, payment, identity verification and submission personally. Firefox packaging and AMO submission belong to [#28](https://github.com/BlackSlience-Reaper/egress-observatory/issues/28); do not upload this Chrome ZIP to AMO.
+For the Chrome Web Store, Microsoft Edge Add-ons, Firefox Add-ons (AMO) and, optionally, Opera add-ons; Safari depends on the outcome of [#29](https://github.com/BlackSlience-Reaper/egress-observatory/issues/29). Store listings are pending; all URLs in `src/helper-stores.js` are `null`. The maintainer handles account registration, payment, identity verification and submission personally.
+
+| 商店 / Store | 上传包 / Upload | 覆盖 / Covers |
+|---|---|---|
+| Chrome 网上应用店 / Chrome Web Store | `dist/egress-browser-helper-v<version>-chrome.zip` | Chrome、Brave、Vivaldi、Arc 等 / and other Chromium browsers |
+| Microsoft Edge 加载项 / Edge Add-ons | 同上 / same | Edge |
+| Firefox 附加组件 / AMO | `dist/egress-browser-helper-v<version>-firefox.zip` | Firefox 140+ 桌面版 / desktop |
+| Opera 加载项 / Opera add-ons（可选 / optional） | `-chrome.zip` | Opera |
 
 ## 中文文案
 
@@ -18,9 +25,9 @@ Egress 自动网页查询为 Egress IP 质量检测页面补充公开情报。�
 
 扩展使用当前浏览器会话访问来源页面，尽量复用已打开的同一目标结果页，用户原有标签保持原状。新建标签归入“Egress 自动查询”临时组，读取完成后关闭；停止等待、切换查询或离开、关闭发起页面会清理本轮创建的标签。遇到人机验证时，点击 Egress 的“去验证”并手动完成；扩展保留该标签等待，通过后继续读取。扩展不会点击、求解或绕过验证码，也不保证绕过来源的登录、额度或访问限制。
 
-目标 IP 会发送到指定查询来源，提取结果只返回发起查询的 Egress 标签页。扩展不读取或导出 Cookie、账号凭据或 API key；来源页仍由浏览器按正常规则使用自身会话。公开 JSON 请求不带浏览器会话凭据。成功结果按来源和 IP 在内存中最多保留 128 项，在原始成功时间后 10 分钟内可复用；Service Worker 停止后缓存消失。扩展没有统计、遥测、广告追踪或数据销售。
+目标 IP 会发送到指定查询来源，提取结果只返回发起查询的 Egress 标签页。扩展不读取或导出 Cookie、账号凭据或 API key；来源页仍由浏览器按正常规则使用自身会话。公开 JSON 请求不带浏览器会话凭据。成功结果按来源和 IP 在内存中最多保留 128 项，在原始成功时间后 10 分钟内可复用；扩展后台停止后缓存消失。扩展没有统计、遥测、广告追踪或数据销售。
 
-安装后打开 https://blackslience-reaper.github.io/egress-observatory/ ，刷新页面并点击“查询”或“重新检测”。该页面也提供离线 ZIP 与安装步骤。Chrome 与 Edge 使用同一份运行代码；Firefox 支持另行准备。
+安装后打开 https://blackslience-reaper.github.io/egress-observatory/ ，刷新页面并点击“查询”或“重新检测”。该页面也提供离线 ZIP 与安装步骤。Chrome、Edge 与 Opera 使用同一个安装包；Firefox 140 及以上桌面版使用由同一份代码生成的 Firefox 包。
 
 **单一用途声明**：在 Egress 页面发起的公网 IP 查询中，从固定情报来源读取并返回目标 IP 的公开网络归属、类型与风险字段，以补全该页的 IP 检测结果。
 
@@ -70,9 +77,9 @@ Results return to the initiating Egress page one provider at a time and suppleme
 
 The extension uses the current browser session for provider pages. An already-open matching result page may be reused without navigating or closing it. New tabs are placed in a temporary “Egress 自动查询” group where possible and closed after extraction. Stopping a wait, changing the query, leaving or closing the initiating page cleans up the job's temporary tabs. When a CAPTCHA appears, use Egress's verification link and complete it manually. The extension keeps the tab open and resumes reading afterward. It never clicks, solves or bypasses CAPTCHAs and does not bypass provider login, quota or access restrictions.
 
-The target IP is sent to the specified lookup providers. Extracted results return only to the Egress tab that started the query. The extension does not read or export cookies, account credentials or API keys. Provider pages retain their normal browser-managed sessions; public JSON requests omit browser session credentials. Successful results are cached by provider and IP in memory, up to 128 entries, and reused for 10 minutes from their original success timestamp. Cache data disappears when the service worker stops. The extension has no analytics, telemetry, ad tracking or data sales.
+The target IP is sent to the specified lookup providers. Extracted results return only to the Egress tab that started the query. The extension does not read or export cookies, account credentials or API keys. Provider pages retain their normal browser-managed sessions; public JSON requests omit browser session credentials. Successful results are cached by provider and IP in memory, up to 128 entries, and reused for 10 minutes from their original success timestamp. Cache data disappears when the extension's background stops. The extension has no analytics, telemetry, ad tracking or data sales.
 
-After installation, open https://blackslience-reaper.github.io/egress-observatory/ , refresh the page and start a query or rerun detection. The page also provides an offline ZIP and installation steps. Chrome and Edge use the same runtime package. Firefox support is being prepared separately.
+After installation, open https://blackslience-reaper.github.io/egress-observatory/ , refresh the page and start a query or rerun detection. The page also provides an offline ZIP and installation steps. Chrome, Edge and Opera use the same package; Firefox 140 and later on desktop use a Firefox package generated from the same code.
 
 **Single-purpose statement**: Supplement a public-IP query initiated by an Egress page by reading the target IP's public network ownership, type and risk fields from fixed intelligence providers and returning them to that page.
 
@@ -108,6 +115,44 @@ The extension has no separate collection server or analytics. The Egress website
 
 **Support and contact**: https://github.com/BlackSlience-Reaper/egress-observatory/issues
 
+## Firefox 附加组件（AMO）/ Firefox Add-ons
+
+上传 `-firefox.zip`，选择在 AMO 上公开发布（On this site）。包内是未压缩、未转译的源码，无需另交源码包。名称、摘要（250 字符以内）和说明沿用上方中英文文案；类别选“隐私与安全 / Privacy & Security”；平台只选桌面（Windows、macOS、Linux）；许可证 GPL-3.0-only；主页为 Egress 网站，支持页为 GitHub Issues，隐私政策 URL 同上。
+
+Upload `-firefox.zip` and choose to list it on AMO (On this site). The package contains unminified, untranspiled sources, so no separate source archive is needed. Reuse the Chinese and English name, summary (250 characters or fewer) and description above; choose the Privacy & Security category, desktop platforms only (Windows, macOS, Linux), the GPL-3.0-only license, the Egress site as homepage, GitHub Issues as the support page and the same privacy policy URL.
+
+### Firefox 包的 manifest 差异 / Firefox manifest differences
+
+`pack.py` 用 `manifest.firefox.json`（JSON Merge Patch）改写共用的 `manifest.json`，运行代码不变：
+
+`pack.py` applies `manifest.firefox.json` (a JSON Merge Patch) to the shared `manifest.json`; the runtime code is unchanged:
+
+- `background.scripts` 取代 `service_worker`：Firefox 不支持扩展 Service Worker。/ `background.scripts` replaces `service_worker`, which Firefox does not support for extensions.
+- 本地开发页匹配 `http://127.0.0.1/*`、`http://localhost/*`：Firefox 匹配模式不认端口，带 `:4187` 的模式匹配不到页面；后台仍只接受 4187 端口和线上 Egress 路径发来的消息。/ Local development pages match `http://127.0.0.1/*` and `http://localhost/*` because Firefox match patterns do not match a port; the background still accepts messages only from port 4187 and the hosted Egress path.
+- `content_security_policy.extension_pages` 设为 `script-src 'self'`：Firefox MV3 默认 CSP 带 `upgrade-insecure-requests`，会把 ip-api.com 的 HTTP 请求升级为 HTTPS，免费接口因此返回 403。仍不加载远程代码。/ The extension-page CSP is `script-src 'self'`. Firefox's default MV3 CSP adds `upgrade-insecure-requests`, which upgrades the ip-api.com HTTP request to HTTPS, where the free endpoint returns 403. No remote code is loaded.
+- `browser_specific_settings.gecko`：ID `egress-browser-helper@blackslience-reaper.github.io`（首次上架后不能更改）、`strict_min_version` 140.0（内置数据收集授权与 `tabGroups` 所需），以及下方的数据收集声明。/ The gecko ID (permanent once listed), `strict_min_version` 140.0 for built-in data consent and `tabGroups`, and the data collection declaration below.
+- 删除 `minimum_chrome_version`。/ `minimum_chrome_version` is removed.
+
+### 数据收集声明 / Data collection declaration
+
+自 2025 年 11 月 3 日起，AMO 新提交的扩展必须在 manifest 中声明数据收集；Firefox 140 及以上在安装时显示。Mozilla 把“传输”定义为在扩展或本地浏览器之外处理的数据。扩展发送到浏览器之外的只有目标 IP（可能是用户自己的出口 IP），发给固定查询来源；读取的位置、类型和风险字段只回到同一浏览器里的 Egress 页面，网站也不把插件结果上传到 Egress 后端。因此 `required` 只填 `personallyIdentifyingInfo`，位置、浏览活动、网站内容在本地处理，不声明。提交前按 AMO 当时的定义复核；审核要求更宽的声明时，只改 `manifest.firefox.json`。
+
+Since November 3, 2025, new AMO submissions must declare data collection in the manifest; Firefox 140 and later show it at install time. Mozilla treats data as transmitted when it is handled outside the add-on or the local browser. The only data the extension sends outside the browser is the target IP, possibly the user's own exit IP, to the fixed lookup providers. Extracted location, type and risk fields return only to the Egress page in the same browser, and the site does not upload helper results to the Egress backend. `required` therefore lists only `personallyIdentifyingInfo`; location, browsing activity and website content are handled locally and not declared. Recheck against AMO's definitions at submission time; if review asks for a broader declaration, change only `manifest.firefox.json`.
+
+### 审核备注 / Notes to reviewers
+
+> No build step. The files are the unminified sources in `browser-helper/` of https://github.com/BlackSlience-Reaper/egress-observatory at the release commit; `manifest.json` is produced by `browser-helper/pack.py` from `manifest.json` and `manifest.firefox.json`.
+>
+> To test, open https://blackslience-reaper.github.io/egress-observatory/ ; it checks the visitor's own exit IP, and any public IP can be entered in the query box. The "多源 IP 类型" section gains a "插件" row with per-provider results, and "查询详情" lists each provider's outcome. The extension acts only when that page asks: it fetches fixed public JSON endpoints, or opens fixed provider result pages in a temporary tab group, reads target-matched fields with `scripting.executeScript`, returns them to the requesting tab and closes the tabs it opened. It never interacts with CAPTCHAs; the user completes them.
+>
+> ip-api.com's free endpoint is HTTP only, so the extension-page CSP omits `upgrade-insecure-requests`; `script-src 'self'` still applies and no remote code is loaded. The content script also matches `127.0.0.1` and `localhost` for local development of the site; the background accepts messages there only from port 4187.
+
+## Opera 加载项 / Opera add-ons
+
+可选。上传 `-chrome.zip`，文案沿用英文版。上架前，站点在 Opera 中显示 Chrome 网上应用店链接，Opera 用户可借助 Opera 的“Install Chrome Extensions”扩展安装。
+
+Optional. Upload `-chrome.zip` with the English listing. Until it is listed, the site shows Opera visitors the Chrome Web Store link, which Opera can install from with its Install Chrome Extensions add-on.
+
 ## 截图清单 / Screenshot checklist
 
 每张 1280×800 PNG，直角、满幅，无额外边框或留白，使用实际界面。拍摄前开启“隐藏 IP”，检查地址栏、标签标题、悬浮提示和报告字段，确保没有真实 IP、凭据或私人内容。示意地址只用 `203.0.113.10`，截图不得伪造来源结果或商店可用状态。
@@ -122,16 +167,17 @@ Use real UI captures, each a full-bleed 1280×800 PNG with square corners and no
 
 ## 发布步骤 / Release steps
 
-1. 在 `browser-helper/manifest.json` 提升 `version`；本次准备保留当前版本。维护者本人完成 Chrome / Edge 账号注册、付款与身份核验。Increase the manifest version for the next release. This preparation keeps the current version. Account registration, payment and identity verification are handled personally by the maintainer.
-2. 在仓库根目录运行 `python browser-helper/pack.py`（macOS / Linux 可用 `python3`）。脚本仅用标准库，从 manifest 取版本，同步网站下载标签与链接、两个 README 标题和链接。网站需要新版插件时，再手动提高 `src/render.js` 的 `MIN_HELPER_VERSION` 并刷新 `render.js` → `main.js` → `index.html` 的 `?v=`。Run the packer from the repository root; it synchronizes the download link and README version references using only the Python standard library. Raise `MIN_HELPER_VERSION` by hand only when the site needs a newer helper.
-3. 取得 `dist/egress-browser-helper-v<version>-chrome.zip`，分别上传到 Chrome Web Store 与 Edge Add-ons。包根目录含 `manifest.json`，不含 README、打包脚本或本文。按上方文案填写各项权限和隐私字段，上传图标与实际截图。Upload the same root-manifest ZIP to Chrome Web Store and Edge Add-ons, then enter the listing, permission and privacy information and upload the icon and actual screenshots.
-4. 提交商店前，先让 `privacy.html` 在公开 URL 可访问。由维护者提交、处理审核意见并选择发布时间；本任务不执行账号或提交操作。Make the public privacy-policy URL reachable before submission. The maintainer submits, handles review feedback and chooses publication timing.
-5. 将 `downloads/egress-browser-helper-v<version>.zip` 与相应源码、文档改动纳入后续发布提交，保留已有离线包（包括全部已有 1.3.x 包）；`dist/` 已忽略。离线包保留顶层 `browser-helper/`，只含运行文件、图标和 README。In the eventual release commit, include the new offline ZIP and corresponding source/docs, preserve all earlier offline packages including every existing 1.3.x ZIP, and leave `dist/` untracked.
-6. 商店实际公开后，把对应 URL 填入 `src/helper-stores.js`，刷新所有引用它的 `?v=` 并沿导入链刷新到 `index.html`。Chrome 系浏览器显示 Chrome 商店，Edge 显示 Edge 加载项；未配置或未支持的浏览器保留现有离线入口。离线 ZIP 与安装说明始终可用。After publication, set each live store URL and bump its import URL and all importing modules through the HTML entry point. Keep the offline ZIP and installation instructions available.
-7. 两个商店的审核与自动更新可能不同步。采用商店提供的延迟发布或逐步推送能力时，先观察实际查询与失败反馈，再扩大覆盖；Chrome 的部分推送仅在商店满足资格时可选。页面用数字版本比较提示低于最低版本的安装，仍继续读取旧版本能返回的字段。`MIN_HELPER_VERSION` 只在网站确实需要所有用户升级时手动提高。Offline ZIP 可供尚未收到商店更新的用户手动更新，商店安装的扩展仍由其商店更新。Reviews and automatic updates can arrive at different times. Use deferred publication or staged rollout where available, observe real query behavior before expanding rollout, and retain older-result compatibility. Chrome partial rollout is subject to store eligibility. `MIN_HELPER_VERSION` is raised by hand only when every user must upgrade. Store installations update through their store; the offline ZIP remains a manual fallback.
+1. **改版本号 / Bump the version**：提升 `browser-helper/manifest.json` 的 `version`，各浏览器包共用。改了 `page-extract.js`、`page-providers.js` 或 `util.js` 时，`src/` 同名文件保持一致（CI 比对），并沿导入链刷新 `?v=`。Raise the shared manifest version. Keep those three files identical to `src/` (CI compares them) and bump `?v=` along the import chain.
+2. **打包 / Package**：在仓库根目录运行 `python browser-helper/pack.py`（macOS / Linux 可用 `python3`）。脚本只用标准库，生成离线包 `downloads/egress-browser-helper-v<version>.zip`（顶层 `browser-helper/`，含运行文件、图标和 README）以及 `dist/` 中的 `-chrome.zip` 与 `-firefox.zip`（根目录含 manifest，不含 README），并同步 `index.html` 下载链接与两个 README 的版本号、商店列表。`dist/` 已被忽略。Run the packer from the repository root. Using only the standard library, it builds the offline ZIP and the per-browser upload ZIPs and synchronizes the download link, README versions and store lists. `dist/` is ignored.
+3. **试装 / Try the packages**：Chrome 或 Edge 加载解压后的离线包；Firefox 在 `about:debugging` 临时载入 `-firefox.zip`。各在 Egress 页面查询一次，确认插件行有结果、需要人机验证的来源显示“待验证”、停止等待后临时标签关闭。Load the unpacked offline package in Chrome or Edge and the Firefox ZIP as a temporary add-on, run one Egress query in each, and check helper results, “待验证” for sources awaiting a manual check, and tab cleanup after stopping.
+4. **提交各商店 / Submit**：按上表上传对应的包。首次提交按上文填写文案、权限、隐私字段，上传图标与截图；之后的更新只上传新包，文案按需修改。提交前 `privacy.html` 必须能在公开 URL 访问。由维护者提交、处理审核意见并选择发布时间。Upload the package listed for each store. The first submission needs the listing text, permission and privacy answers, icon and screenshots; later updates upload the new package and edit the listing only as needed. `privacy.html` must be reachable at its public URL first. The maintainer submits, answers review feedback and chooses publication timing.
+5. **更新 ZIP / Ship the offline ZIP**：把新的离线 ZIP 与源码、文档改动一起合并到 master，保留所有旧离线包，已有下载链接继续有效。Merge the new offline ZIP with the source and doc changes and keep every earlier offline ZIP so existing links keep working.
+6. **商店公开后 / After a listing goes live**：把 URL 填入 `src/helper-stores.js`，再运行一次 `pack.py` 更新 README 的商店列表；刷新 `render.js` 对 `helper-stores.js` 的 `?v=`，并沿导入链刷新到 `index.html`。站点按访客浏览器显示对应商店，Opera 未上架时用 Chrome 网上应用店；Chromium 浏览器同时保留离线 ZIP 和步骤，Firefox 只能从商店安装。Set the live URL in `src/helper-stores.js`, rerun `pack.py` for the README store lists, and bump the `helper-stores.js` import through `render.js` and `main.js` to `index.html`. The site offers each visitor's store, the Chrome Web Store for Opera until Opera is listed, and keeps the offline ZIP and steps for Chromium browsers.
+7. **推送期间的旧版本 / Older versions during rollout**：各商店审核和自动更新到达的时间不同，访客会有一段时间装着旧版本。插件每次回报都带版本号：可选功能按 `src/render.js` 的 `HELPER_FEATURES` 判断（例如单源重试需要 1.3.3），旧版本继续提供它能返回的字段；只有所有访客都必须升级时才手动提高 `MIN_HELPER_VERSION`，页面随即提示“请更新”。新功能需要新版插件时，在 `HELPER_FEATURES` 记下首个版本，不要提高最低版本。商店提供延迟发布或逐步推送时，先观察实际查询与失败反馈再扩大范围。Stores review and update installs at different times, so visitors run older versions for a while. Every helper report carries its version: optional features are gated by `HELPER_FEATURES` in `src/render.js` (single-source retry needs 1.3.3), and older helpers keep supplying the fields they return. Raise `MIN_HELPER_VERSION` by hand only when every visitor must upgrade; the page then asks for an update. Record a new feature's first version in `HELPER_FEATURES` instead of raising the minimum. Where a store offers deferred publication or staged rollout, watch real queries and failure reports before widening it.
 
 ## 参考 / References
 
 - [Chrome 商店图片规范 / Supplying images](https://developer.chrome.com/docs/webstore/images)：128×128 图标内约 96×96 图形，四周透明；截图使用 1280×800。The 128×128 store icon uses approximately 96×96 artwork with transparent padding; screenshots use 1280×800.
 - [Chrome 隐私字段 / Privacy fields](https://developer.chrome.com/docs/webstore/cws-dashboard-privacy) 与 [用户数据 FAQ / User Data FAQ](https://developer.chrome.com/docs/webstore/program-policies/user-data-faq)：披露本机数据处理和受限浏览活动。Disclose local data handling and the limited browsing activity required by the feature.
 - [Chrome 更新与逐步推送 / Update and rollout](https://developer.chrome.com/docs/webstore/update)：按商店当时提供的资格和发布选项操作。Use rollout and publication options available to the listing at release time.
+- [Firefox 内置数据收集授权 / Firefox built-in data consent](https://extensionworkshop.com/documentation/develop/firefox-builtin-data-consent/) 与 [AMO 附加组件政策 / Add-on policies](https://extensionworkshop.com/documentation/publish/add-on-policies/)：数据收集声明的类别和“传输”的定义。Data types and the definition of transmission for the declaration.

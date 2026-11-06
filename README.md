@@ -12,7 +12,7 @@
 
 **v2.0 · 2026-11-05**
 
-[**打开网站**](https://blackslience-reaper.github.io/egress-observatory/) · [评分规则](SCORING.md) · [数据来源](DATA-SOURCES.md) · [Chrome 扩展](browser-helper/README.md) · [参与开发](CONTRIBUTING.md)
+[**打开网站**](https://blackslience-reaper.github.io/egress-observatory/) · [评分规则](SCORING.md) · [数据来源](DATA-SOURCES.md) · [浏览器扩展](browser-helper/README.md) · [参与开发](CONTRIBUTING.md)
 
 </div>
 
@@ -55,24 +55,33 @@ Egress 联合 20 多个 IP 数据库、16 个 DNS 黑名单、17 个威胁、代
 
 网页中的明确 VPN、代理、Tor、机房、中继、爬虫和滥用标记进入现有加权投票，明确的 0–100 风险分进入风险评分。IPSuper 的逐库风险矩阵也会自动补充这些字段；未支持和获取失败的格子不投票。IPQS、Scamalytics、AbuseIPDB 的具名风险分用于评分，其他条形百分比保留原意。官网、Chrome、IPSuper 和 IPOK 的同库结果合并，只保留一份来源权重，返回字段时立即重新计算总分和用途评分。
 
-## Chrome 扩展 v1.3.3（可选）
+## 浏览器扩展 v1.3.4（可选）
 
 不安装也能使用：网站默认在云端读取 IPSuper 的逐库类型、风险分和风险矩阵，供所有访客自动补全。
 
-Chrome 网上应用店与 Edge 加载项的商店入口将在上架后启用；当前使用离线安装。
+**商店安装**（一键安装，自动更新）：
 
-[**下载 Chrome 扩展 v1.3.3（ZIP）**](https://blackslience-reaper.github.io/egress-observatory/downloads/egress-browser-helper-v1.3.3.zip) · [安装说明](browser-helper/README.md) · [扩展隐私政策](https://blackslience-reaper.github.io/egress-observatory/privacy.html)
+<!-- helper-stores -->
+- Chrome 网上应用店：Chrome、Brave、Vivaldi、Arc 等 Chromium 浏览器，待上架
+- Microsoft Edge 加载项：Edge，待上架
+- Firefox 附加组件：Firefox 140 及以上桌面版，待上架
+- Opera 加载项：Opera，待上架；也可借助 Opera 的“Install Chrome Extensions”扩展从 Chrome 网上应用店安装
+<!-- /helper-stores -->
+
+**离线安装**（访问不了 Chrome 网上应用店，或想先审查代码时）：[**下载 Chrome 扩展 v1.3.4（ZIP）**](https://blackslience-reaper.github.io/egress-observatory/downloads/egress-browser-helper-v1.3.4.zip)，在扩展管理页开启开发者模式后加载解压出的 `browser-helper` 文件夹，详见[安装说明](browser-helper/README.md)。离线包适用于 Chrome、Edge 等 Chromium 浏览器；Firefox 只能安装商店签名的版本。
+
+[扩展隐私政策](https://blackslience-reaper.github.io/egress-observatory/privacy.html)
 
 扩展使用访客当前的浏览器会话增强本机结果，覆盖 18 个来源，补齐接口缺失的字段：
 
 - 安装后，“查询”和“重新检测”会自动建立临时标签组，最多同时打开 3 个来源查询页，逐个读取目标字段后关闭标签；每读到一个就合并进结果，不需要逐次导入。
-- 不向服务器复制 Cookie。页面显示 Chrome 的逐源自动读取状态，并逐源显示失败原因。
+- 不向服务器复制 Cookie。页面显示插件的逐源自动读取状态，并逐源显示失败原因。
 - 遇到人机验证时点“去验证”手动完成；插件持续等待，通过后自动补充并重新评分。
 - 点“停止等待”、切换查询或关闭检测页会取消本轮并清理该页发起的临时标签，其他标签保持原状。
 
 安装包保存在仓库 `downloads/`，包含完整的 `browser-helper/` 文件夹；网页“多源 IP 类型”区也提供下载和安装说明。
 
-维护者在仓库根目录运行 `python browser-helper/pack.py`，即可从 manifest 版本生成离线包和 Chrome / Edge 商店上传包，并同步页面与文档版本。商店文案、权限披露和发布步骤见 [STORE.md](browser-helper/STORE.md)。
+维护者在仓库根目录运行 `python browser-helper/pack.py`，即可从同一份源码和 manifest 版本生成离线包和各浏览器的商店上传包，并同步页面与文档中的版本和商店链接。商店文案、权限披露和发布步骤见 [STORE.md](browser-helper/STORE.md)。
 
 ## 自动代码审查
 
@@ -134,7 +143,7 @@ npm test
 | 组件 | 位置 | 上线方式 |
 | --- | --- | --- |
 | 网站 | 仓库根目录，GitHub Pages | 合并到 `master` 后自动发布 |
-| Chrome 扩展 | `browser-helper/`，打包到 `downloads/` | 访客自行下载安装 |
+| 浏览器扩展 | `browser-helper/`，打包到 `downloads/` 与各浏览器商店 | 访客从商店或离线 ZIP 安装 |
 | 本机查询服务 | `local_server.py`、`provider_pages.py` | 只在本地运行 |
 | 线上后端 | 单独维护，不在这个仓库 | 由维护者部署；页面通过 `config.js` 里的公开地址调用 |
 
@@ -151,7 +160,7 @@ npm test
 | `src/render.js`、`styles.css` | 页面呈现 |
 | `src/page-lookups.js`、`src/provider-pages.js`、`src/page-extract.js`、`src/page-providers.js`、`src/ipinfo-page.js`、`src/ipsuper.js`、`src/supplements.js` | 来源网页读取与第三方补全 |
 | `local_server.py`、`provider_pages.py` | 本机启动器与来源网页读取 |
-| `browser-helper/` | Chrome 扩展 |
+| `browser-helper/` | 浏览器扩展（Chrome、Edge、Firefox） |
 | `tests/` | 单元测试 |
 
 ### 网页补全

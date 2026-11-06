@@ -1,0 +1,17 @@
+{
+  "background": {"service_worker": null, "scripts": ["background.js"]},
+  "content_scripts": [{
+    "matches": ["https://blackslience-reaper.github.io/egress-observatory/*", "http://127.0.0.1/*", "http://localhost/*"],
+    "js": ["bridge.js"],
+    "run_at": "document_idle"
+  }],
+  "minimum_chrome_version": null,
+  "content_security_policy": {"extension_pages": "script-src 'self'"},
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "egress-browser-helper@blackslience-reaper.github.io",
+      "strict_min_version": "140.0",
+      "data_collection_permissions": {"required": ["personallyIdentifyingInfo"]}
+    }
+  }
+}

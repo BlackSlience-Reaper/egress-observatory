@@ -161,7 +161,7 @@ python -m playwright install chromium
 
 `local_server.py` 和 `provider_pages.py` 提供本机的网页查询（4188 端口）。改了这两个文件或 `src/page-extract.js` 时请在 PR 里说明，由维护者判断是否需要同步到线上。
 
-### Chrome 扩展
+### 浏览器扩展
 
 `browser-helper/` 里的 `page-extract.js`、`page-providers.js` 和 `util.js` 必须与 `src/` 下的同名文件一致，CI 会检查。发新版本时：
 
@@ -178,7 +178,8 @@ python -m playwright install chromium
    python browser-helper/pack.py
    ```
 
-3. 脚本会同步 `README.md`、`browser-helper/README.md`、`index.html` 的版本引用。网站需要新版插件时，再手动提高 `src/render.js` 的 `MIN_HELPER_VERSION`，并更新它的 `?v=`。离线包在 `downloads/`，Chrome / Edge 上传包在忽略提交的 `dist/`；保留已有版本的离线 ZIP。商店文案与发布步骤见 [browser-helper/STORE.md](browser-helper/STORE.md)。
+3. 脚本会同步 `README.md`、`browser-helper/README.md`、`index.html` 的版本引用和 README 的商店列表。离线包在 `downloads/`，各浏览器上传包在忽略提交的 `dist/`：`-chrome.zip` 用于 Chrome、Edge 与 Opera，`-firefox.zip` 由 `browser-helper/manifest.firefox.json` 改写 manifest 后用于 Firefox；保留已有版本的离线 ZIP。
+4. 网站用到新版插件才有的功能时，在 `src/render.js` 的 `HELPER_FEATURES` 记下该功能的首个版本，旧版本照常使用；只有所有访客都必须升级时，才手动提高 `MIN_HELPER_VERSION`。改了 `render.js` 记得沿导入链更新 `?v=`。商店文案与发布步骤见 [browser-helper/STORE.md](browser-helper/STORE.md)。
 
 ## 隐私与密钥
 

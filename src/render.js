@@ -6,26 +6,43 @@ import { CATEGORIES, TYPE_LABEL } from './score.js?v=4.9';
 import { captchaConfig } from './captcha.js';
 import { mock } from './mock.js?v=1';
 import { PAGE_PROVIDERS } from './page-providers.js?v=1';
-import { helperStore } from './helper-stores.js?v=1';
+import { helperBrowser, helperStore } from './helper-stores.js?v=2';
 
 const $ = id => document.getElementById(id);
+// Below this version the page asks for an update. Store updates reach installs gradually, so raise it by hand
+// only when every visitor must upgrade; older helpers keep supplying what they return.
 const MIN_HELPER_VERSION = '1.3.3';
+/** First helper version with each optional feature. */
+const HELPER_FEATURES = {retry:'1.3.3'};
 
-export function renderHelperDownload() {
-  const store = helperStore();
-  if(!store)return;
-  const download = $('browser-helper-download');
-  const links = document.createElement('span');
-  links.className='small';
+const storeLink = store => {
   const listing = document.createElement('a');
   listing.href=store.url;listing.textContent=store.label+' ↗';
   listing.target='_blank';listing.rel='noopener noreferrer';
-  const install = document.createElement('a');
-  install.href='#browser-helper-install';install.textContent='安装步骤';
-  install.addEventListener('click',()=>{$('browser-helper-install').open=true;});
-  download.before(links);
-  download.textContent=download.textContent.replace('Chrome 插件','离线安装');
-  links.append(listing,' · ',download,' · ',install);
+  return listing;
+};
+
+/** Offer this browser's store listing first and keep the offline ZIP and its steps. */
+export function renderHelperDownload() {
+  const store = helperStore();
+  // The offline ZIP is the unsigned Chromium package, which Firefox cannot keep installed.
+  const firefox = helperBrowser() === 'firefox';
+  const chromiumOnly = '下面的离线包只适用于 Chrome、Edge 等 Chromium 浏览器。';
+  const note = $('browser-helper-store');
+  if(store) {
+    const download = $('browser-helper-download');
+    const links = document.createElement('span');
+    links.className='small';
+    const install = document.createElement('a');
+    install.href='#browser-helper-install';install.textContent='安装步骤';
+    install.addEventListener('click',()=>{$('browser-helper-install').open=true;});
+    download.before(links);
+    if(!firefox)download.textContent=download.textContent.replace('Chrome 插件','离线安装');
+    links.append(storeLink(store),' · ',download,' · ',install);
+    note.append('商店安装：从 ',storeLink(store),' 安装，之后由浏览器自动更新；需要立即更新时，在扩展管理页检查更新。'+(firefox ? chromiumOnly : ''));
+  } else if(firefox) note.textContent='Firefox 需从 Firefox 附加组件安装，上架前暂不可用；'+chromiumOnly;
+  else return;
+  note.hidden=false;
 }
 
 function versionBefore(version, minimum) {
@@ -589,15 +606,15 @@ export function renderTypes(run) {
     <tbody>
       <tr><th scope="row">使用类型</th>${ids.map(id => `<td>${markClash(typeCell(run.sources[id], 'usageType', id), run.sources[id], 'usageType', run)}</td>`).join('')}</tr>
       <tr><th scope="row">公司类型</th>${ids.map(id => `<td>${markClash(typeCell(run.sources[id], 'companyType', id), run.sources[id], 'companyType', run)}</td>`).join('')}</tr>
-      ${run.chrome?.version ? `<tr class="chrome-type-row"><th scope="row">插件</th>${ids.map(id=>{const row=run.chrome.rows[id];const failed=row?.status === 'error' && !row.challenge && run.chrome.retry;const retry=failed && chromeCanRetry(run.chrome.version);const tip=row ? lookupDetail(row)+(retry ? ' · 点击重新读取' : failed ? ` · 更新插件至 v${MIN_HELPER_VERSION} 后可点击重试` : '') : run.chrome.active ? '排队中' : '此版本插件未返回该来源';return `<td><button type="button" class="lookup-cell ${row?.status === 'ok' ? 'lookup-ok' : row?.challenge ? 'lookup-wait' : retry ? 'lookup-retry' : ''}" ${retry ? `data-chrome-retry="${esc(id)}"` : 'data-lookup-details'} data-tip="${esc(tip)}" aria-label="${esc((PAGE_PROVIDERS[id]?.name || id)+(retry ? ' 插件重新读取' : ' 插件查询详情'))}">${row ? lookupLabel(row) : run.chrome.active ? '排队' : '未返回'}</button></td>`;}).join('')}</tr>` : ''}
+      ${run.chrome?.version ? `<tr class="chrome-type-row"><th scope="row">插件</th>${ids.map(id=>{const row=run.chrome.rows[id];const failed=row?.status === 'error' && !row.challenge && run.chrome.retry;const retry=failed && chromeCanRetry(run.chrome.version);const tip=row ? lookupDetail(row)+(retry ? ' · 点击重新读取' : failed ? ` · 更新插件至 v${HELPER_FEATURES.retry} 后可点击重试` : '') : run.chrome.active ? '排队中' : '此版本插件未返回该来源';return `<td><button type="button" class="lookup-cell ${row?.status === 'ok' ? 'lookup-ok' : row?.challenge ? 'lookup-wait' : retry ? 'lookup-retry' : ''}" ${retry ? `data-chrome-retry="${esc(id)}"` : 'data-lookup-details'} data-tip="${esc(tip)}" aria-label="${esc((PAGE_PROVIDERS[id]?.name || id)+(retry ? ' 插件重新读取' : ' 插件查询详情'))}">${row ? lookupLabel(row) : run.chrome.active ? '排队' : '未返回'}</button></td>`;}).join('')}</tr>` : ''}
     </tbody></table>
     <p class="muted small type-summary">使用：${esc(tally('usageType'))} · 公司：${esc(tally('companyType'))}${filled.length ? ` · 补充 ${filled.length} 项` : ''}</p>`;
   renderLookupStatus(run);
 }
 
-/** Helper 1.3.3+ can read a single source again beside a running query. */
+/** Newer helpers can read a single source again beside a running query. */
 export function chromeCanRetry(version) {
-  return Boolean(version) && !versionBefore(version, MIN_HELPER_VERSION);
+  return Boolean(version) && !versionBefore(version, HELPER_FEATURES.retry);
 }
 
 function lookupLabel(row) {
