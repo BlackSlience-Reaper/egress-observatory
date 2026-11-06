@@ -4,17 +4,17 @@ import { setupImport, supplementTypes, readReport, readRiskReport, mergeTypeRepo
 import { setupProviderImport, readProviderReport, mergeProviderPage, lookupChromePages } from './provider-pages.js?v=4.3';
 /** Orchestration: detect the egress, fan out every check, rescore as results arrive. */
 import { API_BASE } from '../config.js?v=cloud3';
-import { mock } from './mock.js?v=2';
+import { mock } from './mock.js?v=3';
 import { lookupPage } from './page-lookups.js?v=7';
 import { getJSON, parseIP, isPublicIP, sameIP, maskIP, maskText } from './util.js?v=4.1';
-import { SOURCES, runSource } from './sources.js?v=3.6';
-import { setupOwnKeys } from './own-keys.js?v=3';
-import { DNSBLS, checkDNSBL, CIDR_LISTS, checkCIDRList, asnAbuseDensity } from './blocklists.js';
+import { SOURCES, runSource } from './sources.js?v=3.7';
+import { setupOwnKeys } from './own-keys.js?v=4';
+import { DNSBLS, checkDNSBL, CIDR_LISTS, checkCIDRList, asnAbuseDensity, forgetLists } from './blocklists.js?v=2';
 import { fetchASN, inferASN, detectLease } from './asn.js?v=4.3';
 import { detectEgress, summarizeEgress, probeWebRTC, probeDNS, classifyDNS, probeTCP, probeEnvironment, probeIPv6, classifyIPv6, traceProbe } from './probes.js?v=5';
 import { runTurnstile, runRecaptcha } from './captcha.js?v=4.2';
 import { score } from './score.js?v=5.2';
-import * as view from './render.js?v=4.32';
+import * as view from './render.js?v=4.34';
 
 const $ = id => document.getElementById(id);
 // In mock mode only documentation addresses can be checked, so real ones never meet fixture answers.
@@ -29,6 +29,9 @@ $('types').addEventListener('click',event=>{
 const app = {
   masked: localStorage.getItem('egress-mask') === '1',
   egress: null, egressPromise: null, health: null, healthPromise: null, healthPending: false, healthAt: 0, run: null, frame: 0,
+  // Only the latest check and the latest exit detection may write their results; autoStart is the detection still
+  // allowed to start the self-check (0 once anything else was checked).
+  runSeq: 0, egressSeq: 0, autoStart: 0,
 };
 
 // ---------- backend capabilities ----------
@@ -200,12 +203,26 @@ function rememberIP(ip) {
 async function startRun(input, fetchPages = true) {
   const parsed = parseIP(input);
   if (!parsed || !checkable(parsed.ip)) { $('status').textContent = mock ? '模拟模式只接受文档保留地址，例如 203.0.113.10。' : '请输入有效的公网 IPv4 或 IPv6 地址。'; return; }
+  // Any check, above all one the visitor asked for, takes the place of a self-check still waiting to start.
+  app.autoStart = 0;
+  const seq = ++app.runSeq;
   rememberIP(parsed.ip);
   const healthReady = refreshHealth(true);
   app.run?.controller.abort();
   const controller = new AbortController();
   const signal = controller.signal;
-  const egress = app.egress || await Promise.race([app.egressPromise, new Promise(resolve => setTimeout(resolve, 4000))]) || app.egress;
+  let egress = app.egress || await Promise.race([app.egressPromise, new Promise(resolve => setTimeout(resolve, 4000))]) || app.egress;
+  // A newer check started while this one waited for the exit: it wins, and this one stops before it could switch the
+  // mock exit or start another exit detection.
+  if (seq !== app.runSeq) return;
+  // Mock mode treats whatever address is checked as this browser's exit (unless &self=0): the fixtures switch to it,
+  // so the live checks and the lists (downloaded again) answer for it too.
+  if (mock?.asSelf && !egress?.ips?.some(ip => sameIP(ip, parsed.ip))) {
+    mock.useExit(parsed.ip);
+    forgetLists();
+    egress = await refreshEgress({ autoStart: false });
+    if (seq !== app.runSeq) return;
+  }
   const self = Boolean(egress?.ips?.some(ip => sameIP(ip, parsed.ip)));
   const run = {
     ip: parsed.ip, v: parsed.v, self, controller, healthReady, startedAt: Date.now(),
@@ -214,7 +231,7 @@ async function startRun(input, fetchPages = true) {
   app.run = run;
   $('ip-input').value = parsed.ip;
   const url = new URL(location.href);
-  if (self) url.searchParams.delete('ip'); else url.searchParams.set('ip', parsed.ip);
+  if (self && !mock?.asSelf) url.searchParams.delete('ip'); else url.searchParams.set('ip', parsed.ip);
   history.replaceState(null, '', url);
   view.crossLinks(parsed.ip);
   $('ipinfo-page-link').href = 'https://ipinfo.io/' + encodeURIComponent(parsed.ip);
@@ -536,21 +553,28 @@ document.addEventListener('click', event => {
  */
 function refreshEgress({ autoStart }) {
   let started = false;
+  const token = ++app.egressSeq;
+  const latest = () => token === app.egressSeq;
+  if (autoStart) app.autoStart = token;
+  const mayStart = () => autoStart && !started && app.autoStart === token;
   const button = $('self-check');
   button.disabled = true;
   app.egress = null;
   if (autoStart) $('status').textContent = '正在识别本机出口 IP…';
   app.egressPromise = detectEgress(undefined, results => {
+    if (!latest()) return;
     app.egress = { ...summarizeEgress(results), partial: true };
-    if (autoStart && !started) {
+    if (mayStart()) {
       const first = app.egress.v4 || null;
       if (first && results.find(item => item.id === 'ipify4')?.status !== 'pending') { started = true; startRun(first); }
     }
     if (app.run) scheduleRender(); else view.renderEgress(app.egress, null, app);
   }, checkable).then(summary => {
+    // A newer detection replaced this one: its results are stale and must not overwrite the newer exit.
+    if (!latest()) return summary;
     app.egress = summary;
     button.disabled = false;
-    if (autoStart && !started) {
+    if (mayStart()) {
       started = true;
       if (summary.v4 || summary.v6) startRun(summary.v4 || summary.v6);
       else $('status').textContent = '没能识别本机出口 IP，可以直接输入要检测的地址。';
@@ -609,5 +633,7 @@ view.renderHelperDownload();
 view.applyMask(app.masked);
 view.renderHistory(readHistory());
 view.renderEgress(null, null, app);
+// A mock check opened by URL is the exit from the start, so the first detection already reports it.
+if (mock?.asSelf && requested && parseIP(requested) && checkable(parseIP(requested).ip)) mock.useExit(parseIP(requested).ip);
 refreshEgress({ autoStart: !requested });
 if (requested) startRun(requested);

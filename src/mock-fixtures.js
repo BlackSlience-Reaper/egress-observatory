@@ -278,11 +278,14 @@ function pause(ms, signal) {
   });
 }
 
-function fixtureFetch(scenario) {
-  const table = routes(scenario);
+/** scenarioOf() is read per request: when the checked address becomes the exit, every answer follows it. */
+function fixtureFetch(scenarioOf) {
+  let built = null; let table = null;
   return async (input, init = {}) => {
     const url = String(input?.url ?? input);
     const key = url.startsWith(API_BASE) ? `api:${url.slice(API_BASE.length)}` : url;
+    const scenario = scenarioOf();
+    if (scenario !== built) { built = scenario; table = routes(scenario); }
     // A little latency, so pending states and rescoring show as they do for real.
     await pause(40 + Math.random() * 200, init.signal);
 
@@ -308,12 +311,15 @@ function fixtureFetch(scenario) {
 
 // ---------- page ----------
 
-function showBanner(current) {
+function showBanner(current, asSelf) {
   const bar = document.createElement('div');
   bar.className = 'mock-banner';
   bar.setAttribute('role', 'status');
-  const links = Object.entries(SCENARIOS).map(([id, { label }]) => `<a href="?mock=1&amp;scenario=${id}"${id === current ? ' aria-current="page"' : ''}>${label}</a>`).join('');
-  bar.innerHTML = `<strong>模拟模式</strong><span>所有数据来自本地 fixture，不是真实检测；WebRTC、人机验证和 Chrome 插件没有运行。</span><nav aria-label="模拟场景">${links}</nav>`;
+  const mode = asSelf ? '' : '&amp;self=0';
+  const links = Object.entries(SCENARIOS).map(([id, { label }]) => `<a href="?mock=1&amp;scenario=${id}${mode}"${id === current ? ' aria-current="page"' : ''}>${label}</a>`).join('');
+  const toggle = `<a href="?mock=1&amp;scenario=${current}${asSelf ? '&amp;self=0' : ''}">${asSelf ? '改为检测别人的 IP' : '把输入的地址当作出口'}</a>`;
+  const how = asSelf ? '输入的文档保留地址都当作本机出口，连接实测用 fixture 回答' : '输入的其他地址按“检测别人的 IP”显示';
+  bar.innerHTML = `<strong>模拟模式</strong><span>所有数据来自本地 fixture，不是真实检测；WebRTC、人机验证和 Chrome 插件没有运行。${how}。</span><nav aria-label="模拟场景">${links}${toggle}</nav>`;
   document.querySelector('.topbar').before(bar);
   document.title = `【模拟】${document.title}`;
 }
@@ -329,12 +335,17 @@ export function install() {
   const requested = new URLSearchParams(location.search).get('scenario');
   const id = Object.hasOwn(SCENARIOS, requested) ? requested : 'clean';
   const { browser } = SCENARIOS[id].net;
-  window.fetch = fixtureFetch(SCENARIOS[id]);
+  // By default whatever address is checked plays this browser's exit; &self=0 keeps the scenario's own exit.
+  const asSelf = new URLSearchParams(location.search).get('self') !== '0';
+  let current = SCENARIOS[id];
+  window.fetch = fixtureFetch(() => current);
   forgetCopies();
-  showBanner(id);
+  showBanner(id, asSelf);
   return {
     // Fixtures use documentation addresses, which the real checks refuse as non-public; mock mode accepts only those.
     accepts,
+    asSelf,
+    useExit: ip => { current = { ...current, ...(ip.includes(':') ? { v6: ip } : { ip }) }; },
     // The browser's own zone and languages come from the scenario too, so it scores the same on every machine.
     env: { tz: { zone: browser.zone, offset: zoneOffset(browser.zone) }, lang: { languages: browser.languages } },
     webrtc: { status: 'ok', supported: false, srflx: [], leak: false, summary: '模拟模式：没有运行 WebRTC 实测' },

@@ -1,10 +1,10 @@
 /** DOM rendering. All external text goes through esc(). */
 import { esc, countryName, maskIP, maskText, formatOffset, zoneOffset } from './util.js?v=4.1';
-import { SOURCES } from './sources.js?v=3.6';
-import { DNSBLS, CIDR_LISTS } from './blocklists.js';
+import { SOURCES } from './sources.js?v=3.7';
+import { DNSBLS, CIDR_LISTS } from './blocklists.js?v=2';
 import { CATEGORIES, TYPE_LABEL, UNSURE } from './score.js?v=5.2';
 import { captchaConfig } from './captcha.js';
-import { mock } from './mock.js?v=2';
+import { mock } from './mock.js?v=3';
 import { PAGE_PROVIDERS } from './page-providers.js?v=1';
 import { helperBrowser, helperStore } from './helper-stores.js?v=2';
 

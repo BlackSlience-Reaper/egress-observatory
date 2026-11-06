@@ -4,7 +4,7 @@
  * and it stays out of results, share links and exported reports.
  */
 import { esc, text, bool, num } from './util.js';
-import { mock } from './mock.js?v=2';
+import { mock } from './mock.js?v=3';
 
 const STORE = 'egress-own-keys';
 const KEY_FORMAT = /^[A-Za-z0-9_.:-]{8,200}$/;
