@@ -1,6 +1,6 @@
 import { sameIP } from './util.js';
 import { fillSource } from './supplements.js?v=3';
-import { extractProviderPage } from './page-extract.js?v=4.1';
+import { extractProviderPage } from './page-extract.js?v=4.2';
 import { PAGE_PROVIDERS } from './page-providers.js?v=1';
 
 export const PAGE_SOURCES = Object.keys(PAGE_PROVIDERS).filter(id=>id!=='ipsuper');

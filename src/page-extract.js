@@ -266,6 +266,8 @@ export function extractProviderPage(provider, ip, raw = null, returnError = fals
     const status = raw ? 0 : performance.getEntriesByType('navigation')[0]?.responseStatus;
     if (status === 429 || /rate limit|too many requests|quota|limit reached|daily limit|requests limit/i.test(body + ' ' + String(raw?.error || raw?.message || ''))) throw Error((status === 429 ? 'HTTP 429：' : '') + '来源查询额度或频率受限');
     if (/checking your browser|checking your connection|security verification|verify you are human|confirm you.re human|just a moment|human verification|正在进行安全验证|确认您是真人|请验证您是真人/i.test(body)) throw Error('网页需要浏览器或人机校验');
+    // A challenge page can finish loading with its 403 before its text renders.
+    if ([401,403].includes(status) && !body.trim()) throw Error('页面内容尚未显示，状态 ' + status);
     if ([401,403].includes(status)) throw Error('HTTP ' + status + '：来源拒绝访问');
     if (status >= 400) throw Error('HTTP ' + status + '：来源网页不可用');
     if (raw?.error || raw?.status === 'fail' || raw?.success === false) throw Error('来源拒绝查询：' + String(raw.error || raw.message || '未返回记录').slice(0,140));
