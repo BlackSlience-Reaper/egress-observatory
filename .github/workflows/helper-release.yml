@@ -1,0 +1,71 @@
+name: Prepare Helper Release
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: helper-release
+  cancel-in-progress: false
+
+jobs:
+  package:
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with:
+          python-version: '3.12'
+      - name: Read the manifest version
+        id: manifest
+        run: |
+          python - <<'PY'
+          import json, os, re
+          from pathlib import Path
+          version = json.loads(Path('browser-helper/manifest.json').read_text())['version']
+          if not re.fullmatch(r'\d+(?:\.\d+){1,3}', version):
+              raise ValueError('Invalid extension version')
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write(f'version={version}\n')
+          PY
+      - name: Build offline and store packages
+        run: python browser-helper/pack.py
+      - name: Create a commit-bound draft with packages and checksums
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          HELPER_VERSION: ${{ steps.manifest.outputs.version }}
+        run: |
+          set -euo pipefail
+          tag="helper-v${HELPER_VERSION}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo '::error::This version already has a release. Use a new version or edit its draft explicitly.'
+            exit 1
+          fi
+          offline="downloads/egress-browser-helper-v${HELPER_VERSION}.zip"
+          chrome="dist/egress-browser-helper-v${HELPER_VERSION}-chrome.zip"
+          firefox="dist/egress-browser-helper-v${HELPER_VERSION}-firefox.zip"
+          sha256sum "$offline" "$chrome" "$firefox" | sed -E 's#  (downloads|dist)/#  #' > dist/SHA256SUMS
+          notes="$RUNNER_TEMP/helper-release-notes.md"
+          cat > "$notes" <<EOF
+          Source commit: ${GITHUB_SHA}
+
+          - Offline ZIP: extract and load the browser-helper directory in Chromium browsers.
+          - Chrome ZIP: store upload package for Chrome, Edge and Opera.
+          - Firefox ZIP: upload package requiring Mozilla signing before installation.
+          - SHA256SUMS: SHA-256 digests of these three packages.
+
+          Packaging records the downloadable artifacts. Installed extension behavior and store publication require their own observations.
+          EOF
+          url=$(gh release create "$tag" "$offline" "$chrome" "$firefox" dist/SHA256SUMS \
+            --draft --target "$GITHUB_SHA" --title "Browser helper v${HELPER_VERSION}" \
+            --notes-file "$notes" --generate-notes)
+          printf 'Draft release: %s\n\nSource commit: `%s`\n' "$url" "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"

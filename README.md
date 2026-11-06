@@ -85,7 +85,7 @@ Egress 联合 20 多个 IP 数据库、16 个 DNS 黑名单、17 个威胁、代
 
 ## 自动代码审查
 
-[OpenAI PR Review](https://github.com/BlackSlience-Reaper/egress-observatory/actions/workflows/openai-review.yml) 在同仓库的非草稿 PR 新建、更新、重新打开或转为可审查时自动运行，固定使用 `gpt-6-astra`、High 推理强度，并以 `github-actions[bot]` 发布绑定实际 head commit 的 GitHub Review。新提交会取消旧运行，过期报告不发布；审查只发表意见，不批准或合并 PR。
+[OpenAI PR Review](https://github.com/BlackSlience-Reaper/egress-observatory/actions/workflows/openai-review.yml) 在具备仓库写权限的触发者更新同仓库非草稿 PR 时自动运行，固定使用 `gpt-6-astra`、Medium 推理强度，并以 `github-actions[bot]` 发布绑定实际 head commit 的 GitHub Review。新提交会取消旧运行，过期、已关闭或已转为草稿的 PR 不发布报告；审查只发表意见，不批准或合并 PR。
 
 仓库管理员在 [Actions Secrets](https://github.com/BlackSlience-Reaper/egress-observatory/settings/secrets/actions) 配置专用的 `OPENAI_API_KEY` 后生效，调用计入该 key 所属 OpenAI API 项目。缺少密钥时工作流摘要会明确显示待配置并跳过审查。维护者也可在工作流页面点击 **Run workflow**，输入 PR 编号手动运行；fork PR 使用这个维护者入口。
 
@@ -103,7 +103,7 @@ Proxycheck、IPQualityScore、AbuseIPDB、GreyNoise、IPHub 和 VirusTotal 不�
 
 ## 本地运行
 
-需要 Python 3；只有跑测试时才需要 Node.js。
+需要 Python 3.12 或更新版本；网站使用原生 JavaScript，无需 npm 安装或构建。
 
 macOS / Linux：
 
@@ -122,7 +122,7 @@ python local_server.py
 本地的“查询”还需要 Playwright 和 Chromium，首次安装（macOS / Linux 上用 `python3`）：
 
 ```bash
-python -m pip install playwright
+python -m pip install -r requirements.txt
 python -m playwright install chromium
 ```
 
@@ -135,11 +135,7 @@ python local_server.py
 
 这个设置只管 4188 端口的网页查询。页面里的其他请求走浏览器自己的网络；要一起换出口，需要给浏览器单独设代理，并阻止 WebRTC 绕过代理，例如 Chrome 的 `--proxy-server` 和 `--force-webrtc-ip-handling-policy=disable_non_proxied_udp`。
 
-运行测试：
-
-```bash
-npm test
-```
+交付以用户入口的实际行为为依据，记录页面、命令或 Actions 的操作与结果。`tests/` 作为历史资产保留，不运行测试或将测试结果作为完成条件。
 
 ## 配置
 
@@ -170,7 +166,7 @@ npm test
 | `src/page-lookups.js`、`src/provider-pages.js`、`src/page-extract.js`、`src/page-providers.js`、`src/ipinfo-page.js`、`src/ipsuper.js`、`src/supplements.js` | 来源网页读取与第三方补全 |
 | `local_server.py`、`provider_pages.py` | 本机启动器与来源网页读取 |
 | `browser-helper/` | 浏览器扩展（Chrome、Edge、Firefox） |
-| `tests/` | 单元测试 |
+| `tests/` | 历史测试资产，保留且不作为交付依据 |
 
 ### 网页补全
 
@@ -201,7 +197,15 @@ npm test
 
 线上后端不在这个仓库，参与开发不需要后端权限或 key。环境配置（含 Windows）、分支约定和各模块的改动要求见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
+### Agent 开发入口
+
+仓库规则统一维护在 [AGENTS.md](AGENTS.md)，Claude 和 Copilot 入口引用同一份规则。Codex 项目技能提供 `$egress-change`（开发、修复与交接）和 `$egress-release`（扩展打包与发布）；可直接在仓库内调用，示例和证据格式见 [Agent 工作流](docs/agent-workflow.md)。
+
+GitHub Actions 提供 PR 自动范围标签、Copilot 的 Python/Chromium 环境准备，以及 [扩展 draft Release](https://github.com/BlackSlience-Reaper/egress-observatory/actions/workflows/helper-release.yml) 入口。Dependabot 每周检查 Actions 与 Python 依赖。默认分支保留 PR、squash 历史和讨论解决规则，交付记录实际调用入口及观察结果。
+
 ## Star History
+
+下图由 Star History 动态接口提供，会自动更新，无需定期修改 README。图片服务与 GitHub 的缓存可能延迟展示；点击图表可打开交互页面。
 
 <a href="https://www.star-history.com/?type=date&repos=BlackSlience-Reaper%2Fegress-observatory">
  <picture>

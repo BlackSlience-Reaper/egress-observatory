@@ -1,6 +1,6 @@
 name: 数据源
 description: 提议新增数据源，或反馈现有来源的字段、权重、可用性问题
-labels: [data-source]
+labels: [data-source, 'status:triage']
 body:
   - type: markdown
     attributes:

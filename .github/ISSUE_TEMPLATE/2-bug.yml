@@ -1,6 +1,6 @@
 name: 问题反馈
 description: 页面报错、结果明显不对、扩展或查询服务失效
-labels: [bug]
+labels: [bug, 'status:triage']
 body:
   - type: markdown
     attributes:

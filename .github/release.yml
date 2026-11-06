@@ -1,0 +1,14 @@
+changelog:
+  exclude:
+    labels: [duplicate, invalid, wontfix]
+  categories:
+    - title: Browser helper
+      labels: ['area:extension']
+    - title: Scoring and data sources
+      labels: ['area:scoring', 'area:sources']
+    - title: Website and local lookup
+      labels: ['area:frontend', 'area:lookup']
+    - title: Dependencies and maintenance
+      labels: [dependencies, 'area:repo', documentation]
+    - title: Other changes
+      labels: ['*']

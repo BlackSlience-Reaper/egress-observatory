@@ -48,20 +48,34 @@ jobs:
             const { data: pr } = await github.rest.pulls.get({
               ...context.repo, pull_number,
             });
+            let permission = 'none';
+            try {
+              const { data } = await github.rest.repos.getCollaboratorPermissionLevel({
+                ...context.repo, username: context.actor,
+              });
+              permission = data.permission;
+            } catch (error) {
+              if (error.status !== 404) throw error;
+            }
+            const trusted = ['admin', 'maintain', 'write'].includes(permission);
+            const eligible = trusted && pr.state === 'open' && !pr.draft &&
+              pr.base.repo.full_name === process.env.GITHUB_REPOSITORY;
             core.setOutput('pull_number', String(pull_number));
             core.setOutput('base_sha', pr.base.sha);
             core.setOutput('head_sha', pr.head.sha);
-            const enabled = process.env.HAS_OPENAI_API_KEY === 'true';
+            const enabled = eligible && process.env.HAS_OPENAI_API_KEY === 'true';
             core.setOutput('enabled', String(enabled));
             await core.summary
               .addHeading('OpenAI PR Review')
               .addRaw(`PR #${pull_number} · gpt-6-astra · reasoning medium\n\n`)
               .addRaw(`Head: ${pr.head.sha}\n\n`)
-              .addRaw(enabled
+              .addRaw(!eligible
+                ? 'Review skipped: an open, ready PR and a triggering actor with repository write permission are required.'
+                : enabled
                 ? 'Review configured. The next job reads the diff without executing project code.'
                 : `Review pending: add OPENAI_API_KEY in https://github.com/${context.repo.owner}/${context.repo.repo}/settings/secrets/actions, then run this workflow again.`)
               .write();
-            if (!enabled) {
+            if (eligible && !enabled) {
               core.warning('Review was not run: OPENAI_API_KEY is not configured.');
             }
 
@@ -131,8 +145,8 @@ jobs:
             const { data: pr } = await github.rest.pulls.get({
               ...context.repo, pull_number,
             });
-            if (pr.head.sha !== head) {
-              core.notice('A newer commit is present; the outdated review will not be published.');
+            if (pr.head.sha !== head || pr.state !== 'open' || pr.draft) {
+              core.notice('The PR revision or readiness changed; this review will not be published.');
               return;
             }
             const marker = `<!-- openai-review:${head} -->`;
