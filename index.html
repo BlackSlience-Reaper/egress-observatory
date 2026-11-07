@@ -9,8 +9,35 @@
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>IP 纯净度检测 · Egress</title>
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./styles.css?v=3.6">
-  <script type="module" src="./src/main.js?v=4.45"></script>
+  <link rel="stylesheet" href="./styles.css?v=3.7">
+  <!-- Every module's cache version lives here; modules import each other without ?v=. Bump the entry of each changed file. -->
+  <script type="importmap">
+  {
+    "imports": {
+      "./config.js": "./config.js?v=cloud3",
+      "./src/asn.js": "./src/asn.js?v=4.3",
+      "./src/blocklists.js": "./src/blocklists.js?v=2",
+      "./src/captcha.js": "./src/captcha.js?v=4.2",
+      "./src/helper-stores.js": "./src/helper-stores.js?v=2",
+      "./src/ipinfo-page.js": "./src/ipinfo-page.js?v=3.4",
+      "./src/ipsuper.js": "./src/ipsuper.js?v=3.4",
+      "./src/mock.js": "./src/mock.js?v=3.1",
+      "./src/mock-fixtures.js": "./src/mock-fixtures.js?v=3",
+      "./src/own-keys.js": "./src/own-keys.js?v=4.1",
+      "./src/page-extract.js": "./src/page-extract.js?v=4.2",
+      "./src/page-lookups.js": "./src/page-lookups.js?v=7.1",
+      "./src/page-providers.js": "./src/page-providers.js?v=1",
+      "./src/probes.js": "./src/probes.js?v=5",
+      "./src/provider-pages.js": "./src/provider-pages.js?v=4.4",
+      "./src/render.js": "./src/render.js?v=4.35",
+      "./src/score.js": "./src/score.js?v=5.2",
+      "./src/sources.js": "./src/sources.js?v=3.8",
+      "./src/supplements.js": "./src/supplements.js?v=3",
+      "./src/util.js": "./src/util.js?v=4.1"
+    }
+  }
+  </script>
+  <script type="module" src="./src/main.js?v=4.46"></script>
 </head>
 <body>
   <a class="skip-link" href="#main">跳到检测结果</a>

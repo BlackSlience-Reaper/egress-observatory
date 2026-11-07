@@ -1,4 +1,4 @@
-import { API_BASE, PAGE_LOOKUP_BASE } from '../config.js?v=cloud3';
+import { API_BASE, PAGE_LOOKUP_BASE } from '../config.js';
 import { sameIP } from './util.js';
 
 const reports = new Map();

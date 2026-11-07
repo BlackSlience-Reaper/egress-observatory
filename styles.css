@@ -441,7 +441,7 @@ body:not(.has-result) #checks, body:not(.has-result) #uses { opacity: .35; }
   opacity: 0; visibility: hidden; transition: opacity .12s ease;
 }
 #tip.on { opacity: 1; visibility: visible; }
-#tip::first-line { color: var(--text); font-weight: 650; }
+#tip .tip-title { color: var(--text); font-weight: 650; }
 
 /* layout fixes */
 .asn-head > div:first-child { min-width: 0; flex: 1; }

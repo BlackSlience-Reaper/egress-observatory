@@ -34,7 +34,7 @@
 
 ## 前端、本机服务与扩展
 
-- 修改浏览器模块后沿引用链更新 `?v=`；入口是 `index.html` 的 CSS 和 `src/main.js`。
+- 模块缓存版本集中在 `index.html`：改了哪个模块，就更新 import map 里它的 `?v=`（`src/main.js` 在其 `<script>` 标签，CSS 在 `<link>`）；模块之间的 `import` 不带 `?v=`。
 - `browser-helper/` 的 `page-extract.js`、`page-providers.js`、`util.js` 与 `src/` 同名文件保持一致。
 - 扩展改动升级 manifest 版本并运行 `python browser-helper/pack.py`；保留旧离线 ZIP。源码和 ZIP 完成后仍需区分浏览器实际安装版本与商店上架状态。
 - 保持来源消息校验、目标核对、会话隔离、取消与临时标签清理；CAPTCHA 保留人工入口。
