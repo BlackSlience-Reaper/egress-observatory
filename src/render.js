@@ -209,7 +209,10 @@ function listValue(item) {
   return `${item.listed ? `命中 ${item.match}` : '未命中'}${neighbours}`;
 }
 
-let tipNode = null; let tipFor = null;
+let tipNode = null; let tipFor = null; let tipMode = null; let tipLabel = null; let focusLabel = null; let pointerX = -1; let pointerY = -1;
+// A visible label that survives a re-render: tags/tiles/usages carry a stable name element,
+// everything else keeps its own text. Used to re-find the same tip target after innerHTML replacement.
+const labelOf = el => (el.querySelector('.tag2-text, .tile-label, .use-name')?.textContent ?? el.textContent).replace(/\s+/g, ' ').trim();
 // A multi-line tip's first line is its title: it goes into its own element so it bolds as a whole line
 // (::first-line would only bold the first laid-out line). A single-line tip gets no title at all.
 // Content is filled with textContent only — tips carry source-returned data.
@@ -239,15 +242,34 @@ export function initTooltips() {
     const left = Math.min(Math.max(8, rect.left + rect.width / 2 - box.width / 2), innerWidth - box.width - 8);
     tipNode.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`;
   };
-  const hide = () => { tipFor = null; tipNode.classList.remove('on'); };
+  const hide = () => { tipFor = null; tipMode = null; tipNode.classList.remove('on'); };
   const pick = event => event.target.closest?.('[data-tip]');
-  document.addEventListener('pointerover', event => { const target = pick(event); if (target?.dataset.tip) { if (target !== tipFor) show(target); } else if (tipFor) hide(); });
-  document.addEventListener('focusin', event => { const target = pick(event); if (target?.dataset.tip) show(target); });
+  document.addEventListener('pointerover', event => { const target = pick(event); if (target?.dataset.tip) { if (target !== tipFor) { tipMode = 'hover'; show(target); } } else if (tipFor) hide(); });
+  document.addEventListener('pointermove', event => { pointerX = event.clientX; pointerY = event.clientY; }, { passive: true });
+  document.addEventListener('focusin', event => { const target = pick(event); if (target?.dataset.tip) { tipMode = 'focus'; show(target); } });
   document.addEventListener('focusout', hide);
   addEventListener('scroll', hide, { passive: true });
   document.addEventListener('keydown', event => { if (event.key === 'Escape') hide(); });
 }
-export function refreshTip() { if (tipFor && !tipFor.isConnected) { tipFor = null; tipNode?.classList.remove('on'); } }
+export function beforeRerender() {
+  // Remember what the user was looking at (and what held focus) so afterRerender can put it back
+  // once the sections have rebuilt their innerHTML.
+  tipMode = tipFor?.isConnected && document.activeElement === tipFor ? 'focus' : tipFor?.isConnected ? 'hover' : null;
+  tipLabel = tipMode ? labelOf(tipFor) : null;
+  focusLabel = document.activeElement?.matches?.('[data-tip]') ? labelOf(document.activeElement) : null;
+}
+export function afterRerender() {
+  if (focusLabel) {
+    const match = [...document.querySelectorAll('[data-tip]')].find(el => labelOf(el) === focusLabel);
+    focusLabel = null;
+    if (match) { match.focus({ preventScroll: true }); return; } // focusin re-opens the tip with fresh content
+  }
+  if (tipMode === 'hover' && pointerX >= 0) {
+    const under = document.elementFromPoint(pointerX, pointerY)?.closest?.('[data-tip]');
+    if (under) { show(under); return; } // same card still under the pointer: keep the tip, content updates
+  }
+  if (tipFor && !tipFor.isConnected) { tipFor = null; tipMode = null; tipNode?.classList.remove('on'); }
+}
 
 function itemPts(result, id) {
   return result.categories.flatMap(category => category.items).filter(item => item.id === id || item.id.startsWith(`${id}-`)).reduce((sum, item) => sum + item.pts, 0);
