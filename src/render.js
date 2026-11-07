@@ -210,13 +210,28 @@ function listValue(item) {
 }
 
 let tipNode = null; let tipFor = null;
+// A multi-line tip's first line is its title: it goes into its own element so it bolds as a whole line
+// (::first-line would only bold the first laid-out line). A single-line tip gets no title at all.
+// Content is filled with textContent only — tips carry source-returned data.
+function setTipContent(text) {
+  const scrubbed = scrub(text);
+  const [head, ...rest] = scrubbed.split('\n');
+  tipNode.textContent = '';
+  if (!rest.length) { tipNode.textContent = scrubbed; return; }
+  const title = document.createElement('div');
+  title.className = 'tip-title';
+  title.textContent = head;
+  const body = document.createElement('div');
+  body.textContent = rest.join('\n');
+  tipNode.append(title, body);
+}
 export function initTooltips() {
   tipNode = document.createElement('div');
   tipNode.id = 'tip'; tipNode.setAttribute('role', 'tooltip');
   document.body.append(tipNode);
   const show = target => {
     tipFor = target;
-    tipNode.textContent = scrub(target.dataset.tip);
+    setTipContent(target.dataset.tip);
     tipNode.classList.add('on');
     const rect = target.getBoundingClientRect(); const box = tipNode.getBoundingClientRect();
     const above = rect.top - box.height - 8;
@@ -374,7 +389,7 @@ export function renderChecks(run, result) {
     { label: '黑名单', level: loading(c.dnsbl.level), value: c.dnsbl.listed.length ? `收录 ${c.dnsbl.listed.length}` : c.dnsbl.checked ? '未收录' : '—', sub: c.dnsbl.checked ? `${c.dnsbl.checked} 个` : '', pts: itemPts(result, 'dnsbl'), title: c.dnsbl.listed.join('、') },
     asnTile(run, result, loading),
     neighbourTile(c.neighbours, result, loading),
-    { label: 'ASN 信誉', level: c.asnRep.level === 'none' ? (run.asnProfile && !run.asnProfile.routes ? 'none' : 'pending') : c.asnRep.level, value: c.asnRep.ratio === undefined ? '—' : c.asnRep.ratio >= 15 ? '较差' : c.asnRep.ratio >= 2 ? '一般' : c.asnRep.ratio <= 0.2 ? '优异' : c.asnRep.ratio < 0.5 ? '良好' : '正常', sub: c.asnRep.ratio === undefined ? '' : `滥用密度 ${c.asnRep.ratio} 倍均值`, pts: itemPts(result, 'asn-abuse') + itemPts(result, 'rpki'), title: c.asnRep.ratio === undefined ? '' : `整个 ASN 每万个地址有 ${c.asnRep.per10k} 个近期上榜，全网平均 ${c.asnRep.baseline}` },
+    { label: 'ASN 信誉', level: c.asnRep.level === 'none' ? (run.asnProfile && !run.asnProfile.routes ? 'none' : 'pending') : c.asnRep.level, value: c.asnRep.ratio === undefined ? '—' : c.asnRep.ratio >= 15 ? '较差' : c.asnRep.ratio >= 2 ? '一般' : c.asnRep.ratio <= 0.2 ? '优异' : c.asnRep.ratio < 0.5 ? '良好' : '正常', sub: c.asnRep.ratio === undefined ? '' : `滥用密度 ${c.asnRep.ratio} 倍均值`, pts: itemPts(result, 'asn-abuse') + itemPts(result, 'rpki'), title: c.asnRep.ratio === undefined ? '' : `ASN 信誉\n整个 ASN 每万个地址有 ${c.asnRep.per10k} 个近期上榜，全网平均 ${c.asnRep.baseline}` },
     { label: '开放端口', level: loading(c.ports.level), value: c.ports.ports.length ? esc(c.ports.ports.slice(0, 4).join(', ')) + (c.ports.ports.length > 4 ? '…' : '') : c.ports.level === 'none' ? '—' : '未发现', sub: c.ports.tags.length ? esc(c.ports.tags.join(' ')) : '' },
     botTile(run, result),
     sharersTile(c.sharers, result, loading),
@@ -390,7 +405,7 @@ function sharersTile(s, result, loading) {
   return {
     label: '共享人数估计', level: loading(s.level), value: s.tier || '—',
     sub: [s.address ? `该 IP 约 ${s.address} 台` : '', s.own >= 2 ? `本站 ${s.own} 个浏览器` : '', s.subnet ? `同段约 ${s.subnet} 台` : ''].filter(Boolean).join(' · '), pts: itemPts(result, 'sharers'),
-    title: `${proxycheck}。${log}。${known}以上都是估计，数值低也不能证明这个 IP 是独享的。`,
+    title: `共享人数估计\n${proxycheck}。${log}。${known}以上都是估计，数值低也不能证明这个 IP 是独享的。`,
   };
 }
 
@@ -928,7 +943,7 @@ export function applyMask(on) {
   masked = on;
   document.querySelectorAll('.ipv').forEach(node => { node.textContent = on ? maskIP(node.dataset.ip) : node.dataset.ip; });
   document.querySelectorAll('.ipt').forEach(node => { node.textContent = scrub(node.dataset.raw); });
-  if (tipFor) tipNode.textContent = scrub(tipFor.dataset.tip);
+  if (tipFor) setTipContent(tipFor.dataset.tip);
   const input = $('ip-input');
   input.classList.toggle('is-masked', masked && Boolean(input.value));
   $('mask-toggle').textContent = masked ? '显示 IP' : '隐藏 IP';
