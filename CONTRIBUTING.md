@@ -140,7 +140,7 @@ python -m playwright install chromium
 
 ### 页面与缓存
 
-浏览器模块通过 `?v=` 版本号刷新缓存。改了哪个文件，就更新引用它的地方：`index.html` 里的 `styles.css` 和 `src/main.js`，以及其他模块 `import` 语句里的版本号。
+浏览器模块通过 `?v=` 版本号刷新缓存，版本号都在 `index.html`：改了哪个文件，就只更新它自己的那一处——`styles.css` 在 `<link>`，`src/main.js` 在 `<script>` 标签，其他模块和 `config.js` 在 import map。模块之间的 `import` 写不带 `?v=` 的路径，由 import map 补上版本，所以不用再沿导入链逐层更新。新增模块时在 import map 里加一行。
 
 ### 评分
 
@@ -180,7 +180,7 @@ python -m playwright install chromium
    ```
 
 3. 脚本会同步 `README.md`、`browser-helper/README.md`、`index.html` 的版本引用和 README 的商店列表。离线包在 `downloads/`，各浏览器上传包在忽略提交的 `dist/`：`-chrome.zip` 用于 Chrome、Edge 与 Opera，`-firefox.zip` 由 `browser-helper/manifest.firefox.json` 改写 manifest 后用于 Firefox；保留已有版本的离线 ZIP。
-4. 网站用到新版插件才有的功能时，在 `src/render.js` 的 `HELPER_FEATURES` 记下该功能的首个版本，旧版本照常使用；只有所有访客都必须升级时，才手动提高 `MIN_HELPER_VERSION`。改了 `render.js` 记得沿导入链更新 `?v=`。商店文案与发布步骤见 [browser-helper/STORE.md](browser-helper/STORE.md)。
+4. 网站用到新版插件才有的功能时，在 `src/render.js` 的 `HELPER_FEATURES` 记下该功能的首个版本，旧版本照常使用；只有所有访客都必须升级时，才手动提高 `MIN_HELPER_VERSION`。改了 `render.js` 记得更新 `index.html` import map 里它的 `?v=`。商店文案与发布步骤见 [browser-helper/STORE.md](browser-helper/STORE.md)。
 
 合并后可从 [Prepare Helper Release](https://github.com/BlackSlience-Reaper/egress-observatory/actions/workflows/helper-release.yml) 的 Run workflow 或 `gh workflow run helper-release.yml --ref master` 生成绑定 commit 的 GitHub draft Release，自定义附件仅包含离线包、Chrome/Firefox 商店包三个 ZIP。正式发布和商店上架分别执行；已存在的版本不会被工作流覆盖。
 

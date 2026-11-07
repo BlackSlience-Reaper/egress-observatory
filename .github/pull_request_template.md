@@ -22,7 +22,7 @@
 
 只勾选涉及的项，其余可以删除。
 
-- [ ] **页面资源**：改过的文件已更新 `index.html` 或 import 里的 `?v=` 版本号
+- [ ] **页面资源**：改过的文件已更新 `index.html` 里的 `?v=` 版本号（模块在 import map）
 - [ ] **评分**：`SCORING.md` 已同步，记录实际输入与可见扣分原因
 - [ ] **数据源**：`README.md` 的检测内容、`DATA-SOURCES.md` 已同步
 - [ ] **本机查询服务**：改了 `local_server.py`、`provider_pages.py` 或 `src/page-extract.js`，已在上面说明，由维护者判断是否需要同步到线上
