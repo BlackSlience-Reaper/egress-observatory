@@ -2,6 +2,8 @@
 
 # Egress · IP 纯净度检测
 
+<img src="docs/screenshot.png" alt="Egress 网站截图" width="900">
+
 打开即检测本机出口 IP，给出一个能说清每一分扣在哪里的质量分。
 
 [![在线使用](https://img.shields.io/badge/%E5%9C%A8%E7%BA%BF%E4%BD%BF%E7%94%A8-Egress-2563eb)](https://blackslience-reaper.github.io/egress-observatory/)
