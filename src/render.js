@@ -255,28 +255,14 @@ function itemPts(result, id) {
 
 // ---------- hero ----------
 
-function tweenNumber(node, to) {
-  const from = Number(node.dataset.v);
-  node.dataset.v = to;
-  cancelAnimationFrame(node.raf);
-  if (!Number.isFinite(from) || from === to || document.hidden || matchMedia('(prefers-reduced-motion: reduce)').matches) { node.textContent = to; return; }
-  const start = performance.now();
-  const frame = now => {
-    const k = Math.min(1, (now - start) / 700);
-    node.textContent = Math.round(from + (to - from) * (1 - (1 - k) ** 3));
-    if (k < 1) node.raf = requestAnimationFrame(frame);
-  };
-  node.raf = requestAnimationFrame(frame);
-}
-
-// Score ring: a full circle whose value arc is a gradient from a deep to a bright shade of the grade colour.
-// The arc, its round caps and the sweep are CSS (conic gradient + ring mask, driven by --p); updates only move --p.
+// Score ring: the arc runs from a deep to a bright shade of the grade colour, with a fixed tick at the base 92.
+// The arc, its round caps and the sweep are CSS (driven by --p); updates only move --p.
 function renderRing(result, g) {
   const box = $('score-ring');
   box.classList.add('has-score');
   box.dataset.tone = g.tone;
   box.style.setProperty('--p', result.score);
-  tweenNumber(box.querySelector('.ring-text strong'), result.score);
+  box.querySelector('.ring-text strong').textContent = result.score; // the final value at once, never a count-up
   const grade = box.querySelector('.ring-text span');
   grade.className = `tone-${g.tone}`;
   grade.textContent = `${g.letter} 级`;
