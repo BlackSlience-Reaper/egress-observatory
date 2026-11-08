@@ -379,13 +379,13 @@ export function renderChecks(run, result) {
   const abuse = c.abuse;
   const abuseText = abuse.level === 'none' ? '没有数据' : abuse.lists.length ? esc(abuse.lists.join('、')) : abuse.sfs?.appears ? `垃圾注册 ${abuse.sfs.appears} 次` : abuse.abuser.yes ? `${abuse.abuser.yes} 个来源标记` : '无记录';
   const tiles = [
-    { label: '网络类型', level: loading(t.level), value: t.label ? typeTag(result) : '—', sub: t.label ? typeSub : '', pts: itemPts(result, 'hosting') + itemPts(result, 'business') },
+    { label: '网络类型', level: loading(t.level), value: t.label ? typeTag(result) : '—', sub: t.label ? typeSub : '', pts: itemPts(result, 'hosting') },
     { label: '原生 IP', level: loading(native.level), value: native.native === null ? '—' : `${flag(native.regCountry)}${nativeTag(result)}`, sub: '', pts: itemPts(result, 'broadcast') },
     { label: '定位一致', level: loading(geo.level), value: geoText, sub: geo.families > 1 ? `${geo.families} 个独立库` : '', pts: itemPts(result, 'geo-split') },
     { label: '代理 / VPN', level: loading(anon.level), value: anonText, sub: anon.E > 0 ? '' : `${Math.max(anon.vpn.of, anon.proxy.of)} 源`, pts: itemPts(result, 'proxy') + itemPts(result, 'vpn') + itemPts(result, 'relay') + itemPts(result, 'crawler') + itemPts(result, 'shared') },
     { label: 'Tor', level: loading(c.tor.level), value: c.tor.E > 0 ? `是 · ${esc(c.tor.by.join('、'))}` : c.tor.of ? '不是' : '—', sub: c.tor.of ? `${c.tor.of} 源` : '', pts: itemPts(result, 'tor') },
     { label: '欺诈分数', level: loading(c.risk.level), value: c.risk.value === null ? '—' : String(c.risk.value), sub: c.risk.entries.length ? `${c.risk.entries.length} 个来源加权` : '', pts: itemPts(result, 'risk') },
-    { label: '滥用记录', level: loading(abuse.level), value: abuseText, sub: '', pts: itemPts(result, 'abuser') + itemPts(result, 'firehol') + itemPts(result, 'sfs') + itemPts(result, 'vulns') },
+    { label: '滥用记录', level: loading(abuse.level), value: abuseText, sub: '', pts: itemPts(result, 'abuser') + itemPts(result, 'firehol') + itemPts(result, 'otx') + itemPts(result, 'vt') + itemPts(result, 'sfs') + itemPts(result, 'vulns') },
     { label: '黑名单', level: loading(c.dnsbl.level), value: c.dnsbl.listed.length ? `收录 ${c.dnsbl.listed.length}` : c.dnsbl.checked ? '未收录' : '—', sub: c.dnsbl.checked ? `${c.dnsbl.checked} 个` : '', pts: itemPts(result, 'dnsbl'), title: c.dnsbl.listed.join('、') },
     asnTile(run, result, loading),
     neighbourTile(c.neighbours, result, loading),
@@ -417,7 +417,7 @@ function asnTile(run, result, loading) {
   const level = clash && rank[clash.level] > rank[c.level] ? clash.level : c.level;
   const value = clash?.level === 'bad' ? '冲突' : c.consistency ? (c.consistency.ok ? (c.consistency.warn || clash ? '需留意' : '一致') : '冲突') : '—';
   return { label: 'ASN 一致性', level: loading(level), value, sub: c.consistency || clash ? asnTag(run) : '',
-    pts: itemPts(result, 'asn-conflict') + itemPts(result, 'leased'), title: [c.consistency?.text, clash?.text].filter(Boolean).join('\n') };
+    pts: itemPts(result, 'asn-conflict') + itemPts(result, 'leased') + itemPts(result, 'asn-young'), title: [c.consistency?.text, clash?.text].filter(Boolean).join('\n') };
 }
 
 /** Human share as a green bar from the left, bot share as a pink bar from the right, each share written under its end. */
