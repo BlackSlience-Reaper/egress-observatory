@@ -4,12 +4,21 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="IP 纯净度检测：联合 20+ 个数据库、16 个黑名单与 ASN 画像，并实测 WebRTC、DNS、TCP 指纹、Cloudflare Turnstile 与 reCAPTCHA，给出可解释的 IP 质量分。">
-  <meta name="theme-color" content="#0b0c0f">
-  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#f7f7fa">
+  <meta name="color-scheme" content="light dark">
+  <script>
+    (function () {
+      var saved = null;
+      try { saved = localStorage.getItem('egress-theme'); } catch (e) {}
+      var theme = saved === 'light' || saved === 'dark' ? saved : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      document.documentElement.dataset.theme = theme;
+      document.querySelector('meta[name="theme-color"]').content = theme === 'dark' ? '#0b0c0f' : '#f7f7fa';
+    })();
+  </script>
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>IP 纯净度检测 · Egress</title>
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./styles.css?v=3.7">
+  <link rel="stylesheet" href="./styles.css?v=3.8">
   <!-- Every module's cache version lives here; modules import each other without ?v=. Bump the entry of each changed file. -->
   <script type="importmap">
   {
@@ -17,7 +26,7 @@
       "./config.js": "./config.js?v=cloud3",
       "./src/asn.js": "./src/asn.js?v=4.3",
       "./src/blocklists.js": "./src/blocklists.js?v=2",
-      "./src/captcha.js": "./src/captcha.js?v=4.2",
+      "./src/captcha.js": "./src/captcha.js?v=4.3",
       "./src/helper-stores.js": "./src/helper-stores.js?v=2",
       "./src/ipinfo-page.js": "./src/ipinfo-page.js?v=3.4",
       "./src/ipsuper.js": "./src/ipsuper.js?v=3.4",
@@ -29,7 +38,7 @@
       "./src/page-providers.js": "./src/page-providers.js?v=1",
       "./src/probes.js": "./src/probes.js?v=5",
       "./src/provider-pages.js": "./src/provider-pages.js?v=4.4",
-      "./src/render.js": "./src/render.js?v=4.35",
+      "./src/render.js": "./src/render.js?v=4.36",
       "./src/score.js": "./src/score.js?v=5.2",
       "./src/sources.js": "./src/sources.js?v=3.8",
       "./src/supplements.js": "./src/supplements.js?v=3",
@@ -38,13 +47,19 @@
   }
   </script>
   <script type="module" src="./src/main.js?v=4.46"></script>
+  <script type="module" src="./src/shell.js?v=1"></script>
 </head>
 <body>
   <a class="skip-link" href="#main">跳到检测结果</a>
   <div class="progress-track" aria-hidden="true"><i id="progress"></i></div>
   <header class="topbar">
     <a class="brand" href="./"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18M3.5 9h17M3.5 15h17"/></svg><span>Egress</span><em>IP 质量检测</em></a>
-    <nav><a href="#breakdown-card">评分明细</a><a href="https://x.com/BlackSlience" target="_blank" rel="noopener noreferrer" title="广告投放与其他合作">合作 ↗</a><a href="https://github.com/BlackSlience-Reaper/egress-observatory" target="_blank" rel="noopener noreferrer">GitHub ↗</a></nav>
+    <nav aria-label="页面">
+      <a class="nav-link" href="#breakdown-card">评分明细</a><a class="nav-link" href="https://x.com/BlackSlience" target="_blank" rel="noopener noreferrer" title="广告投放与其他合作">合作 ↗</a><a class="nav-link" href="https://github.com/BlackSlience-Reaper/egress-observatory" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
+      <button id="theme-toggle" type="button" class="theme-toggle" aria-label="切换到深色"><svg class="ico-sun" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1 1M11.6 11.6l1 1M3.4 12.6l1-1M11.6 4.4l1-1"/></svg><svg class="ico-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M13 9.6A5.5 5.5 0 0 1 6.4 3a5.5 5.5 0 1 0 6.6 6.6z"/></svg><span class="theme-label">深色</span></button>
+      <button id="menu-btn" type="button" class="menu-btn" aria-expanded="false" aria-controls="menu-sheet" aria-label="菜单"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11"/></svg></button>
+    </nav>
+    <div id="menu-sheet" class="menu-sheet" hidden><a href="#breakdown-card">评分明细</a><a href="https://x.com/BlackSlience" target="_blank" rel="noopener noreferrer" title="广告投放与其他合作">合作 ↗</a><a href="https://github.com/BlackSlience-Reaper/egress-observatory" target="_blank" rel="noopener noreferrer">GitHub ↗</a></div>
   </header>
 
   <main id="main" class="wrap">
@@ -54,13 +69,13 @@
         <div class="score-row">
           <div id="score-ring" class="score-ring" role="img" aria-label="正在检测">
             <svg viewBox="0 0 120 120" class="ring" aria-hidden="true"><circle cx="60" cy="60" r="52" class="ring-track"/></svg>
-            <i class="ring-arc" aria-hidden="true"></i><i class="ring-cap" aria-hidden="true"></i><i class="ring-cap ring-tip" aria-hidden="true"></i>
+            <i class="ring-arc" aria-hidden="true"></i><i class="ring-base" aria-hidden="true" title="基准 92"></i><i class="ring-cap" aria-hidden="true"></i><i class="ring-cap ring-tip" aria-hidden="true"></i>
             <div class="ring-text"><strong>—</strong><span>检测中</span></div>
           </div>
           <div id="verdict" class="verdict"><p class="verdict-text muted">正在联合数据库、黑名单与连接实测生成评分…</p></div>
         </div>
         <div class="hero-actions">
-          <button id="share" type="button" class="accent"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 10V2.5M5 5.2 8 2.3l3 2.9M3 8.5v4.2h10V8.5"/></svg>分享</button>
+          <button id="share" type="button" class="ghost"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 10V2.5M5 5.2 8 2.3l3 2.9M3 8.5v4.2h10V8.5"/></svg>分享</button>
           <button id="export" type="button" class="ghost">导出报告</button>
           <button id="rerun" type="button" class="ghost">重新检测</button>
         </div>
