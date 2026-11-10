@@ -38,8 +38,8 @@
       "./src/page-providers.js": "./src/page-providers.js?v=1",
       "./src/probes.js": "./src/probes.js?v=5",
       "./src/provider-pages.js": "./src/provider-pages.js?v=4.4",
-      "./src/render.js": "./src/render.js?v=4.36",
-      "./src/score.js": "./src/score.js?v=5.2",
+      "./src/render.js": "./src/render.js?v=4.37",
+      "./src/score.js": "./src/score.js?v=5.3",
       "./src/sources.js": "./src/sources.js?v=3.8",
       "./src/supplements.js": "./src/supplements.js?v=3",
       "./src/util.js": "./src/util.js?v=4.1"
@@ -55,11 +55,11 @@
   <header class="topbar">
     <a class="brand" href="./"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18M3.5 9h17M3.5 15h17"/></svg><span>Egress</span><em>IP 质量检测</em></a>
     <nav aria-label="页面">
-      <a class="nav-link" href="#breakdown-card">评分明细</a><a class="nav-link" href="https://x.com/BlackSlience" target="_blank" rel="noopener noreferrer" title="广告投放与其他合作">合作 ↗</a><a class="nav-link" href="https://github.com/BlackSlience-Reaper/egress-observatory" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
+      <a class="nav-link" href="#breakdown-card">评分明细</a><a class="nav-link" href="https://x.com/BlackSlience" target="_blank" rel="noopener noreferrer" data-tip="广告投放与其他合作">合作 ↗</a><a class="nav-link" href="https://github.com/BlackSlience-Reaper/egress-observatory" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
       <button id="theme-toggle" type="button" class="theme-toggle" aria-label="切换到深色"><svg class="ico-sun" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1 1M11.6 11.6l1 1M3.4 12.6l1-1M11.6 4.4l1-1"/></svg><svg class="ico-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M13 9.6A5.5 5.5 0 0 1 6.4 3a5.5 5.5 0 1 0 6.6 6.6z"/></svg><span class="theme-label">深色</span></button>
       <button id="menu-btn" type="button" class="menu-btn" aria-expanded="false" aria-controls="menu-sheet" aria-label="菜单"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11"/></svg></button>
     </nav>
-    <div id="menu-sheet" class="menu-sheet" hidden><a href="#breakdown-card">评分明细</a><a href="https://x.com/BlackSlience" target="_blank" rel="noopener noreferrer" title="广告投放与其他合作">合作 ↗</a><a href="https://github.com/BlackSlience-Reaper/egress-observatory" target="_blank" rel="noopener noreferrer">GitHub ↗</a></div>
+    <div id="menu-sheet" class="menu-sheet" hidden><a href="#breakdown-card">评分明细</a><a href="https://x.com/BlackSlience" target="_blank" rel="noopener noreferrer" data-tip="广告投放与其他合作">合作 ↗</a><a href="https://github.com/BlackSlience-Reaper/egress-observatory" target="_blank" rel="noopener noreferrer">GitHub ↗</a></div>
   </header>
 
   <main id="main" class="wrap">
@@ -99,7 +99,7 @@
           <label class="sr-only" for="ip-input">要检测的 IPv4 或 IPv6 地址</label>
           <input id="ip-input" type="text" inputmode="text" placeholder="输入 IPv4 或 IPv6 地址" spellcheck="false" autocapitalize="off">
           <button type="submit" class="accent">查询</button>
-          <button type="button" id="self-check" class="ghost self-check" title="重新识别本机当前的出口 IP 并检测（含连接实测）"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.5"/><circle cx="8" cy="8" r="1.6"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2"/></svg>测本机出口</button>
+          <button type="button" id="self-check" class="ghost self-check" data-tip="重新识别本机当前的出口 IP 并检测（含连接实测）"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.5"/><circle cx="8" cy="8" r="1.6"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2"/></svg>测本机出口</button>
         </form>
         <div id="ip-history" class="ip-history" aria-label="最近查询的 IP"></div>
         <p id="status" class="status" role="status" aria-live="polite">正在识别你的出口 IP…</p>
