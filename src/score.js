@@ -623,6 +623,7 @@ export function score(evidence) {
   const pending = Object.values(evidence.sources || {}).filter(source => source?.status === 'pending').length;
 
   // ---------- tiles ----------
+  const threatLists = lists.filter(item => item.kind === 'attack' || item.kind === 'spam');
   const checks = {
     type: { value: ipType, label: ipType ? TYPE_LABEL[ipType] || ipType : null, from: typeFrom, hosting, votes: nonHostingRank, mix: typeMix, certainty: r1(typeCertainty * 100) / 100, level: ipType === 'hosting' ? 'warn' : ipType === 'business' ? 'info' : ipType ? 'good' : 'none' },
     native: { native, regCountry, regVotes: regRank, nativeShare, certainty: r1(nativeCertainty * 100) / 100, level: native === null ? 'none' : native ? 'good' : 'warn' },
@@ -631,7 +632,9 @@ export function score(evidence) {
     anon: { vpn: anonFlags.vpn, proxy: anonFlags.proxy, relay: anonFlags.relay, crawler: anonFlags.crawler, E: anonAny, level: anonFlags.vpn.of + anonFlags.proxy.of === 0 ? 'none' : anonAny >= 0.5 ? 'bad' : anonAny > 0 ? 'warn' : 'good' },
     tor: { ...tor, level: tor.of === 0 ? 'none' : tor.E > 0 ? 'bad' : 'good' },
     risk: { value: risk, entries: riskEntries, level: risk === null ? 'none' : risk >= 70 ? 'bad' : risk >= 35 ? 'warn' : 'good' },
-    abuse: { abuser, sfs: sfs ? { appears: sfs.appears || 0, lastseen: sfs.lastseen || null } : null, lists: attack.map(item => item.name), listsChecked: lists.filter(item => item.kind === 'attack' || item.kind === 'spam').length,
+    abuse: { abuser, sfs: sfs ? { appears: sfs.appears || 0, lastseen: sfs.lastseen || null } : null, lists: attack.map(item => item.name), 
+      // For the tooltip: every attack / spam list that answered and every one that lists the IP, scored or not.
+      listsChecked: threatLists.length, listed: threatLists.filter(item => item.listed).map(item => item.name),
       otx: otx ? { pulses: otx.pulses || 0, benign: Boolean(otx.benign) } : null, vt: vt ? { malicious: vt.vtMalicious || 0, suspicious: vt.vtSuspicious || 0 } : null,
       level: (abuser.E > 0 || attack.length || sfs?.appears) ? 'bad' : (abuser.of || sfs || lists.length) ? 'good' : 'none' },
     dnsbl: { listed: dnsblListed.map(item => item.name), checked: dnsbl.filter(item => item.kind !== 'tor').length, level: !dnsbl.length ? 'none' : dnsblListed.length ? 'bad' : 'good' },

@@ -461,7 +461,7 @@ function abuseTip(abuse, ports) {
   const { abuser, sfs, otx, vt } = abuse;
   return tipOf('滥用记录：这个 IP 有没有攻击、垃圾注册等不良记录', [
     !abuser.of ? '' : abuser.yes ? `标记滥用（${abuser.yes}/${abuser.of}）：${names(abuser.by)}` : `${abuser.of} 个来源都没有标记滥用`,
-    !abuse.listsChecked ? '' : abuse.lists.length ? `命中威胁列表：${names(abuse.lists)}（查了 ${abuse.listsChecked} 个）` : `${abuse.listsChecked} 个威胁列表都没有收录`,
+    !abuse.listsChecked ? '' : abuse.listed.length ? `命中威胁列表：${names(abuse.listed)}（查了 ${abuse.listsChecked} 个）` : `${abuse.listsChecked} 个威胁列表都没有收录`,
     !sfs ? '' : sfs.appears ? `StopForumSpam：垃圾注册记录 ${sfs.appears} 次${sfs.lastseen ? `，最近 ${sfs.lastseen.slice(0, 10)}` : ''}` : 'StopForumSpam：没有垃圾注册记录',
     !otx ? '' : otx.benign ? 'AlienVault OTX：列为白名单 / 误报' : otx.pulses ? `AlienVault OTX：${otx.pulses} 份威胁报告提及` : 'AlienVault OTX：没有威胁报告提及',
     !vt ? '' : vt.malicious || vt.suspicious ? `VirusTotal：${vt.malicious} 家安全厂商判定恶意、${vt.suspicious} 家可疑` : 'VirusTotal：没有安全厂商标记',
