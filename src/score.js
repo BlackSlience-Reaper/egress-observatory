@@ -635,7 +635,7 @@ export function score(evidence) {
     abuse: { abuser, sfs: sfs ? { appears: sfs.appears || 0, lastseen: sfs.lastseen || null } : null, lists: attack.map(item => item.name), 
       // For the tooltip: every attack / spam list that answered and every one that lists the IP, scored or not.
       listsChecked: threatLists.length, listed: threatLists.filter(item => item.listed).map(item => item.name),
-      otx: otx ? { pulses: otx.pulses || 0, benign: Boolean(otx.benign) } : null, vt: vt ? { malicious: vt.vtMalicious || 0, suspicious: vt.vtSuspicious || 0 } : null,
+      otx: otx ? { pulses: otx.pulses || 0, benign: Boolean(otx.benign) } : null, vt: vt ? { malicious: typeof vt.vtMalicious === 'number' ? vt.vtMalicious : null, suspicious: typeof vt.vtSuspicious === 'number' ? vt.vtSuspicious : null } : null,
       level: (abuser.E > 0 || attack.length || sfs?.appears) ? 'bad' : (abuser.of || sfs || lists.length) ? 'good' : 'none' },
     dnsbl: { listed: dnsblListed.map(item => item.name), checked: dnsbl.filter(item => item.kind !== 'tor').length, level: !dnsbl.length ? 'none' : dnsblListed.length ? 'bad' : 'good' },
     neighbours: { ...(nb || {}), level: !nb ? 'none' : nb.whole.length || nb.count >= 10 ? 'bad' : nb.count || nb.tor ? 'warn' : 'good' },

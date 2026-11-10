@@ -457,6 +457,14 @@ function dnsblTip(dnsbl) {
   ]);
 }
 
+// A count VirusTotal did not return stays unknown: only two explicit zeros read as "nobody flagged it".
+function vtLine(vt) {
+  if (!vt || (vt.malicious === null && vt.suspicious === null)) return '';
+  if (vt.malicious === 0 && vt.suspicious === 0) return 'VirusTotal：没有安全厂商标记';
+  const count = (value, what) => (value === null ? `${what}的家数未返回` : `${value} 家安全厂商${what}`);
+  return `VirusTotal：${count(vt.malicious, '判定恶意')}、${count(vt.suspicious, '判定可疑')}`;
+}
+
 function abuseTip(abuse, ports) {
   const { abuser, sfs, otx, vt } = abuse;
   return tipOf('滥用记录：这个 IP 有没有攻击、垃圾注册等不良记录', [
@@ -464,7 +472,7 @@ function abuseTip(abuse, ports) {
     !abuse.listsChecked ? '' : abuse.listed.length ? `命中威胁列表：${names(abuse.listed)}（查了 ${abuse.listsChecked} 个）` : `${abuse.listsChecked} 个威胁列表都没有收录`,
     !sfs ? '' : sfs.appears ? `StopForumSpam：垃圾注册记录 ${sfs.appears} 次${sfs.lastseen ? `，最近 ${sfs.lastseen.slice(0, 10)}` : ''}` : 'StopForumSpam：没有垃圾注册记录',
     !otx ? '' : otx.benign ? 'AlienVault OTX：列为白名单 / 误报' : otx.pulses ? `AlienVault OTX：${otx.pulses} 份威胁报告提及` : 'AlienVault OTX：没有威胁报告提及',
-    !vt ? '' : vt.malicious || vt.suspicious ? `VirusTotal：${vt.malicious} 家安全厂商判定恶意、${vt.suspicious} 家可疑` : 'VirusTotal：没有安全厂商标记',
+    vtLine(vt),
     ports.vulns ? `Shodan：推断出 ${ports.vulns} 个已知漏洞（见「开放端口」）` : '',
   ]);
 }
