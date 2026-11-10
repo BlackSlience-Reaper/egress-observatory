@@ -209,7 +209,7 @@ function listValue(item) {
   return `${item.listed ? `命中 ${item.match}` : '未命中'}${neighbours}`;
 }
 
-let tipNode = null; let tipFor = null; let tipMode = null; let tipLabel = null; let focusLabel = null; let pointerX = -1; let pointerY = -1;
+let tipNode = null; let tipFor = null; let tipMode = null; let tipLabel = null; let focusLabel = null; let focusEl = null; let focusSection = null; let pointerX = -1; let pointerY = -1;
 // A visible label that survives a re-render: tags/tiles/usages carry a stable name element,
 // everything else keeps its own text. Used to re-find the same tip target after innerHTML replacement.
 const labelOf = el => (el.querySelector('.tag2-text, .tile-label, .use-name')?.textContent ?? el.textContent).replace(/\s+/g, ' ').trim();
@@ -228,25 +228,27 @@ function setTipContent(text) {
   body.textContent = rest.join('\n');
   tipNode.append(title, body);
 }
+// Shown from both the event handlers and afterRerender (which runs outside
+// initTooltips' scope), so it lives at module level.
+function showTip(target) {
+  tipFor = target;
+  setTipContent(target.dataset.tip);
+  tipNode.classList.add('on');
+  const rect = target.getBoundingClientRect(); const box = tipNode.getBoundingClientRect();
+  const above = rect.top - box.height - 8;
+  const top = above >= 8 ? above : rect.bottom + 8;
+  const left = Math.min(Math.max(8, rect.left + rect.width / 2 - box.width / 2), innerWidth - box.width - 8);
+  tipNode.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`;
+}
 export function initTooltips() {
   tipNode = document.createElement('div');
   tipNode.id = 'tip'; tipNode.setAttribute('role', 'tooltip');
   document.body.append(tipNode);
-  const show = target => {
-    tipFor = target;
-    setTipContent(target.dataset.tip);
-    tipNode.classList.add('on');
-    const rect = target.getBoundingClientRect(); const box = tipNode.getBoundingClientRect();
-    const above = rect.top - box.height - 8;
-    const top = above >= 8 ? above : rect.bottom + 8;
-    const left = Math.min(Math.max(8, rect.left + rect.width / 2 - box.width / 2), innerWidth - box.width - 8);
-    tipNode.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`;
-  };
   const hide = () => { tipFor = null; tipMode = null; tipNode.classList.remove('on'); };
   const pick = event => event.target.closest?.('[data-tip]');
-  document.addEventListener('pointerover', event => { const target = pick(event); if (target?.dataset.tip) { if (target !== tipFor) { tipMode = 'hover'; show(target); } } else if (tipFor) hide(); });
+  document.addEventListener('pointerover', event => { const target = pick(event); if (target?.dataset.tip) { if (target !== tipFor) { tipMode = 'hover'; showTip(target); } } else if (tipFor) hide(); });
   document.addEventListener('pointermove', event => { pointerX = event.clientX; pointerY = event.clientY; }, { passive: true });
-  document.addEventListener('focusin', event => { const target = pick(event); if (target?.dataset.tip) { tipMode = 'focus'; show(target); } });
+  document.addEventListener('focusin', event => { const target = pick(event); if (target?.dataset.tip) { tipMode = 'focus'; showTip(target); } });
   document.addEventListener('focusout', hide);
   addEventListener('scroll', hide, { passive: true });
   document.addEventListener('keydown', event => { if (event.key === 'Escape') hide(); });
@@ -256,17 +258,25 @@ export function beforeRerender() {
   // once the sections have rebuilt their innerHTML.
   tipMode = tipFor?.isConnected && document.activeElement === tipFor ? 'focus' : tipFor?.isConnected ? 'hover' : null;
   tipLabel = tipMode ? labelOf(tipFor) : null;
-  focusLabel = document.activeElement?.matches?.('[data-tip]') ? labelOf(document.activeElement) : null;
+  focusEl = document.activeElement?.matches?.('[data-tip]') ? document.activeElement : null;
+  // Scope the text search to the element's own section: type labels and
+  // status buttons repeat across sources, so a whole-page text match can
+  // restore focus onto another source's element.
+  focusSection = focusEl ? focusEl.closest('section') : null;
+  focusLabel = focusEl ? labelOf(focusEl) : null;
 }
 export function afterRerender() {
   if (focusLabel) {
-    const match = [...document.querySelectorAll('[data-tip]')].find(el => labelOf(el) === focusLabel);
+    const el = focusEl; focusEl = null;
+    const scope = focusSection; focusSection = null;
+    if (el?.isConnected) { el.focus({ preventScroll: true }); return; } // section untouched: same node, keep it
+    const match = scope?.isConnected ? [...scope.querySelectorAll('[data-tip]')].find(candidate => labelOf(candidate) === focusLabel) : null;
     focusLabel = null;
     if (match) { match.focus({ preventScroll: true }); return; } // focusin re-opens the tip with fresh content
   }
   if (tipMode === 'hover' && pointerX >= 0) {
     const under = document.elementFromPoint(pointerX, pointerY)?.closest?.('[data-tip]');
-    if (under) { show(under); return; } // same card still under the pointer: keep the tip, content updates
+    if (under) { showTip(under); return; } // same card still under the pointer: keep the tip, content updates
   }
   if (tipFor && !tipFor.isConnected) { tipFor = null; tipMode = null; tipNode?.classList.remove('on'); }
 }
