@@ -325,7 +325,7 @@ export function renderEgress(egress, run, view) {
     const target = run && item.ip && run.ip === item.ip;
     return `<li class="${target ? 'is-target' : ''}">
       <span class="eg-name">${esc(item.name)}</span>
-      ${item.status === 'pending' ? `<span class="muted">${icon('pending')}等待返回</span>` : item.ip ? `<button type="button" class="eg-ip" data-check="${esc(item.ip)}" title="检测这个 IP">${ipSpan(item.ip, view.masked)}</button>` : '<span class="muted">无响应</span>'}
+      ${item.status === 'pending' ? `<span class="muted">${icon('pending')}等待返回</span>` : item.ip ? `<button type="button" class="eg-ip" data-check="${esc(item.ip)}" data-tip="检测这个 IP">${ipSpan(item.ip, view.masked)}</button>` : '<span class="muted">无响应</span>'}
     </li>`;
   }).join('');
   const note = egress.split ? `<p class="eg-note warn">${icon('warn')}${esc(egress.summary)}</p>`
@@ -367,20 +367,114 @@ export function renderChecks(run, result) {
   const tiles = [
     { label: '网络类型', level: loading(t.level), value: t.label ? typeTag(result) : '—', sub: t.label ? typeSub : '', pts: itemPts(result, 'hosting') },
     { label: '原生 IP', level: loading(native.level), value: native.native === null ? '—' : `${flag(native.regCountry)}${nativeTag(result)}`, sub: '', pts: itemPts(result, 'broadcast') },
-    { label: '定位一致', level: loading(geo.level), value: geoText, sub: geo.families > 1 ? `${geo.families} 个独立库` : '', pts: itemPts(result, 'geo-split') },
-    { label: '代理 / VPN', level: loading(anon.level), value: anonText, sub: anon.E > 0 ? '' : `${Math.max(anon.vpn.of, anon.proxy.of)} 源`, pts: itemPts(result, 'proxy') + itemPts(result, 'vpn') + itemPts(result, 'relay') + itemPts(result, 'crawler') + itemPts(result, 'shared') },
-    { label: 'Tor', level: loading(c.tor.level), value: c.tor.E > 0 ? `是 · ${esc(c.tor.by.join('、'))}` : c.tor.of ? '不是' : '—', sub: c.tor.of ? `${c.tor.of} 源` : '', pts: itemPts(result, 'tor') },
-    { label: '欺诈分数', level: loading(c.risk.level), value: c.risk.value === null ? '—' : String(c.risk.value), sub: c.risk.entries.length ? `${c.risk.entries.length} 个来源加权` : '', pts: itemPts(result, 'risk') },
-    { label: '滥用记录', level: loading(abuse.level), value: abuseText, sub: '', pts: itemPts(result, 'abuser') + itemPts(result, 'firehol') + itemPts(result, 'otx') + itemPts(result, 'vt') + itemPts(result, 'sfs') + itemPts(result, 'vulns') },
-    { label: '黑名单', level: loading(c.dnsbl.level), value: c.dnsbl.listed.length ? `收录 ${c.dnsbl.listed.length}` : c.dnsbl.checked ? '未收录' : '—', sub: c.dnsbl.checked ? `${c.dnsbl.checked} 个` : '', pts: itemPts(result, 'dnsbl'), title: c.dnsbl.listed.join('、') },
+    { label: '定位一致', level: loading(geo.level), value: geoText, sub: geo.families > 1 ? `${geo.families} 个独立库` : '', pts: itemPts(result, 'geo-split'), title: geoTip(geo) },
+    { label: '代理 / VPN', level: loading(anon.level), value: anonText, sub: anon.E > 0 ? '' : `${Math.max(anon.vpn.of, anon.proxy.of)} 源`, pts: itemPts(result, 'proxy') + itemPts(result, 'vpn') + itemPts(result, 'relay') + itemPts(result, 'crawler') + itemPts(result, 'shared'), title: anonTip(anon, c.sharers) },
+    { label: 'Tor', level: loading(c.tor.level), value: c.tor.E > 0 ? `是 · ${esc(c.tor.by.join('、'))}` : c.tor.of ? '不是' : '—', sub: c.tor.of ? `${c.tor.of} 源` : '', pts: itemPts(result, 'tor'), title: torTip(c.tor) },
+    { label: '欺诈分数', level: loading(c.risk.level), value: c.risk.value === null ? '—' : String(c.risk.value), sub: c.risk.entries.length ? `${c.risk.entries.length} 个来源加权` : '', pts: itemPts(result, 'risk'), title: riskTip(c.risk) },
+    { label: '滥用记录', level: loading(abuse.level), value: abuseText, sub: '', pts: itemPts(result, 'abuser') + itemPts(result, 'firehol') + itemPts(result, 'otx') + itemPts(result, 'vt') + itemPts(result, 'sfs') + itemPts(result, 'vulns'), title: abuseTip(abuse, c.ports) },
+    { label: '黑名单', level: loading(c.dnsbl.level), value: c.dnsbl.listed.length ? `收录 ${c.dnsbl.listed.length}` : c.dnsbl.checked ? '未收录' : '—', sub: c.dnsbl.checked ? `${c.dnsbl.checked} 个` : '', pts: itemPts(result, 'dnsbl'), title: dnsblTip(c.dnsbl) },
     asnTile(run, result, loading),
     neighbourTile(c.neighbours, result, loading),
     { label: 'ASN 信誉', level: c.asnRep.level === 'none' ? (run.asnProfile && !run.asnProfile.routes ? 'none' : 'pending') : c.asnRep.level, value: c.asnRep.ratio === undefined ? '—' : c.asnRep.ratio >= 15 ? '较差' : c.asnRep.ratio >= 2 ? '一般' : c.asnRep.ratio <= 0.2 ? '优异' : c.asnRep.ratio < 0.5 ? '良好' : '正常', sub: c.asnRep.ratio === undefined ? '' : `滥用密度 ${c.asnRep.ratio} 倍均值`, pts: itemPts(result, 'asn-abuse') + itemPts(result, 'rpki'), title: c.asnRep.ratio === undefined ? '' : `ASN 信誉\n整个 ASN 每万个地址有 ${c.asnRep.per10k} 个近期上榜，全网平均 ${c.asnRep.baseline}` },
-    { label: '开放端口', level: loading(c.ports.level), value: c.ports.ports.length ? esc(c.ports.ports.slice(0, 4).join(', ')) + (c.ports.ports.length > 4 ? '…' : '') : c.ports.level === 'none' ? '—' : '未发现', sub: c.ports.tags.length ? esc(c.ports.tags.join(' ')) : '' },
+    // No Shodan record is unknown, not "scanned and nothing open".
+    { label: '开放端口', level: c.ports.unseen ? 'none' : loading(c.ports.level), value: c.ports.unseen ? '未被扫描' : c.ports.ports.length ? esc(c.ports.ports.slice(0, 4).join(', ')) + (c.ports.ports.length > 4 ? '…' : '') : c.ports.level === 'none' ? '—' : '未发现', sub: c.ports.tags.length ? esc(c.ports.tags.join(' ')) : c.ports.unseen ? 'Shodan 无记录' : '', title: portsTip(c.ports) },
     botTile(run, result),
     sharersTile(c.sharers, result, loading),
   ];
   $('checks').innerHTML = tiles.map(tile).join('');
+}
+
+// Tile tooltips: the title, then one line per fact — where the data comes from and what it means.
+// Scoring rules stay in SCORING.md. An empty string means no tooltip (nothing has come back yet).
+const tipOf = (title, lines) => (lines.filter(Boolean).length ? [title, ...lines.filter(Boolean)].join('\n') : '');
+const names = list => list.join('、');
+
+/** One flag's votes: who said yes, who explicitly said no. Sources that returned nothing for the flag are not listed. */
+function voteLines(t, what) {
+  if (!t.of) return [];
+  return [t.yes ? `标为${what}（${t.yes}/${t.of}）：${names(t.by)}` : `${t.of} 个来源都没有标为${what}`,
+    t.yes && t.clear.length ? `未标为${what}：${names(t.clear)}` : ''];
+}
+
+function anonTip(anon, sharers) {
+  return tipOf('代理 / VPN：各来源对这个 IP 的匿名出口标记', [
+    ...voteLines(anon.proxy, '代理'), ...voteLines(anon.vpn, ' VPN'),
+    anon.relay.E > 0 ? `标为隐私中继：${names(anon.relay.by)}` : '',
+    anon.crawler.E > 0 ? `标为爬虫 / 自动化：${names(anon.crawler.by)}` : '',
+    sharers.address >= 10 ? `多设备共用出口：Proxycheck 估计该地址近期约 ${sharers.address} 台设备` : '',
+  ]);
+}
+
+function torTip(tor) {
+  if (!tor.of) return '';
+  return tipOf('Tor：这个 IP 是不是 Tor 出口节点', [
+    `查了 ${tor.of} 个来源`,
+    tor.yes ? `判断是 Tor：${names(tor.by)}` : '都没有判断为 Tor',
+    tor.yes && tor.clear.length ? `判断不是：${names(tor.clear)}` : '',
+    tor.hard ? '这是直接确认：地址出现在 Tor 出口节点名单里，不是数据库的推断' : '',
+  ]);
+}
+
+function riskTip(risk) {
+  if (!risk.entries.length) return '';
+  return tipOf('欺诈分数：各来源给这个 IP 的风险评分，0 最干净，100 风险最高', [
+    risk.entries.map(entry => `${entry.by} ${entry.v}`).join(' · '),
+    `卡片上的 ${risk.value} 由这 ${risk.entries.length} 个分数综合而来`,
+  ]);
+}
+
+function geoTip(geo) {
+  if (!geo.country) return '';
+  return tipOf('定位一致：各地理库把这个 IP 定位到哪个国家', [
+    ...geo.countries.map(item => `${item.value}：${names(item.by)}`),
+    `${geo.count} 个来源给出了位置，归为 ${geo.families} 个独立库：几个来源用同一个底层数据库时只算一个，上面每个库列一个代表来源`,
+  ]);
+}
+
+// Shodan InternetDB tags. A tag without an entry is shown as is.
+const PORT_TAGS = {
+  proxy: '开着代理服务端口', vpn: '运行 VPN 服务', tor: '运行 Tor 服务', compromised: '主机疑似已被入侵', malware: '发现恶意软件', c2: '恶意软件的控制端',
+  doublepulsar: '感染了 DoublePulsar 后门', scanner: '在对外扫描', honeypot: '疑似蜜罐', cloud: '属于云服务商', cdn: '属于 CDN', 'self-signed': '使用自签名证书',
+  starttls: '有支持 STARTTLS 的服务', database: '开放数据库端口', iot: '物联网设备', ics: '工控设备', 'eol-os': '系统已停止维护', 'eol-product': '软件已停止维护',
+  devops: '开放运维工具', videogame: '游戏服务器', cryptocurrency: '加密货币相关服务', medical: '医疗设备',
+};
+
+function portsTip(ports) {
+  if (ports.unseen) return tipOf('开放端口：Shodan 的扫描记录', ['Shodan 没有这个 IP 的记录', '这表示没被扫描到，不代表没有开放端口']);
+  if (ports.level === 'none') return '';
+  return tipOf('开放端口：Shodan 扫描到的对外端口', [
+    ports.ports.length ? `共 ${ports.ports.length} 个：${ports.ports.join(', ')}` : 'Shodan 扫描过这个 IP，没有发现开放端口',
+    ...ports.tags.map(tag => `标签 ${tag}${PORT_TAGS[tag] ? `：${PORT_TAGS[tag]}` : ''}`),
+    ports.vulns ? `${ports.vulns} 个已知漏洞（CVE）：按端口上的软件版本推断，未实际验证` : '',
+  ]);
+}
+
+function dnsblTip(dnsbl) {
+  if (!dnsbl.checked) return '';
+  return tipOf('黑名单：邮件和反滥用系统常用的 DNS 黑名单', [
+    `查了 ${dnsbl.checked} 个 DNS 黑名单`,
+    dnsbl.listed.length ? `收录这个 IP：${names(dnsbl.listed)}` : '都没有收录这个 IP',
+  ]);
+}
+
+// A count VirusTotal did not return stays unknown: only two explicit zeros read as "nobody flagged it".
+function vtLine(vt) {
+  if (!vt || (vt.malicious === null && vt.suspicious === null)) return '';
+  if (vt.malicious === 0 && vt.suspicious === 0) return 'VirusTotal：没有安全厂商标记';
+  const count = (value, what) => (value === null ? `${what}的家数未返回` : `${value} 家安全厂商${what}`);
+  return `VirusTotal：${count(vt.malicious, '判定恶意')}、${count(vt.suspicious, '判定可疑')}`;
+}
+
+function abuseTip(abuse, ports) {
+  const { abuser, sfs, otx, vt } = abuse;
+  return tipOf('滥用记录：这个 IP 有没有攻击、垃圾注册等不良记录', [
+    !abuser.of ? '' : abuser.yes ? `标记滥用（${abuser.yes}/${abuser.of}）：${names(abuser.by)}` : `${abuser.of} 个来源都没有标记滥用`,
+    !abuse.listsChecked ? '' : abuse.listed.length ? `命中威胁列表：${names(abuse.listed)}（查了 ${abuse.listsChecked} 个）` : `${abuse.listsChecked} 个威胁列表都没有收录`,
+    !sfs ? '' : sfs.appears ? `StopForumSpam：垃圾注册记录 ${sfs.appears} 次${sfs.lastseen ? `，最近 ${sfs.lastseen.slice(0, 10)}` : ''}` : 'StopForumSpam：没有垃圾注册记录',
+    !otx ? '' : otx.benign ? 'AlienVault OTX：列为白名单 / 误报' : otx.pulses ? `AlienVault OTX：${otx.pulses} 份威胁报告提及` : 'AlienVault OTX：没有威胁报告提及',
+    vtLine(vt),
+    ports.vulns ? `Shodan：推断出 ${ports.vulns} 个已知漏洞（见「开放端口」）` : '',
+  ]);
 }
 
 /** 共享人数估计: the verdict, with each count in its own unit. Devices and browsers do not convert into people. */
@@ -480,6 +574,7 @@ export function renderLive(run, result, egress, view) {
   section.hidden = !run.self;
   if (!run.self) return;
   const p = run.probes;
+  const s = result.summary;
   const lv = key => result.live[key] || (p[key]?.status === 'error' ? 'none' : p[key] ? 'info' : 'pending');
   const tiles = [];
   const w = p.webrtc;
@@ -491,8 +586,10 @@ export function renderLive(run, result, egress, view) {
   tiles.push({ label: 'TCP 连接', level: lv('tcp'), value: !t ? '检测中' : t.status !== 'ok' ? '失败' : t.relay ? '像代理转发' : t.osMismatch ? '系统不一致' : '直连特征', sub: t?.status === 'ok' ? `SYN ≈ ${esc(t.tcpOS)}${t.uaOS ? ` · UA ${esc(t.uaOS)}` : ''}` : esc(t?.error || ''), pts: itemPts(result, 'tcp'), title: t?.summary });
   const env = p.env;
   const tzLevel = result.live.tz || 'none';
-  tiles.push({ label: '时区', level: tzLevel, value: tzLevel === 'warn' ? '与 IP 不符' : tzLevel === 'good' ? '一致' : '—', sub: env ? `${esc(env.tz.zone || '')} ${formatOffset(env.tz.offset)}` : '', pts: itemPts(result, 'tz') });
-  tiles.push({ label: '语言', level: result.live.lang || 'none', value: result.live.lang === 'warn' ? '与地区不符' : result.live.lang === 'good' ? '匹配' : '—', sub: env ? esc(env.lang.languages.slice(0, 2).join(', ')) : '', pts: itemPts(result, 'lang') });
+  tiles.push({ label: '时区', level: tzLevel, value: tzLevel === 'warn' ? '与 IP 不符' : tzLevel === 'good' ? '一致' : '—', sub: env ? `${esc(env.tz.zone || '')} ${formatOffset(env.tz.offset)}` : '', pts: itemPts(result, 'tz'),
+    title: env && tzLevel !== 'none' ? `时区：浏览器的时区和 IP 所在地的时区是否一致\n浏览器：${env.tz.zone || '未知'} ${formatOffset(env.tz.offset)}\nIP 所在地：${s.ipTimezone} ${formatOffset(s.ipOffset)}（取自地理库）` : '' });
+  tiles.push({ label: '语言', level: result.live.lang || 'none', value: result.live.lang === 'warn' ? '与地区不符' : result.live.lang === 'good' ? '匹配' : '—', sub: env ? esc(env.lang.languages.slice(0, 2).join(', ')) : '', pts: itemPts(result, 'lang'),
+    title: env && result.live.lang ? `语言：浏览器的语言是否在 IP 所在国家常用\n浏览器语言：${env.lang.languages.join(', ')}\n${countryName(s.country)}常用语言：${s.countryLangs.join(', ')}` : '' });
   const v6 = p.ipv6Classified;
   tiles.push({ label: 'IPv6', level: lv('ipv6'), value: !v6 ? '检测中' : !v6.address ? '无 IPv6' : v6.mismatch ? '绕过代理' : '一致', sub: v6?.address && !v6.isTarget ? `${flag(v6.country)}${esc(v6.org || '')}` : '', pts: itemPts(result, 'ipv6'), title: v6?.summary });
   const tr = p.trace;
