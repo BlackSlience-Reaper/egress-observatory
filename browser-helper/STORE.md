@@ -147,6 +147,18 @@ Since November 3, 2025, new AMO submissions must declare data collection in the 
 >
 > ip-api.com's free endpoint is HTTP only, so the extension-page CSP omits `upgrade-insecure-requests`; `script-src 'self'` still applies and no remote code is loaded. The content script also matches `127.0.0.1` and `localhost` for local development of the site; the background accepts messages there only from port 4187.
 
+## Microsoft Edge 加载项 / Edge Add-ons
+
+在 Partner Center 的 Edge 工作区新建扩展，上传 `-chrome.zip`。审核最长约 7 个工作日。各页按以下内容填写：
+
+Create the extension in Partner Center's Edge workspace and upload `-chrome.zip`. Certification can take up to about seven business days. Fill in each page as follows:
+
+- **Availability**：可见性 Public，市场保持全部。/ Public visibility, all markets.
+- **Properties**：类别按当时列表必选一项；Website 填 Egress 网站，Support 填 GitHub Issues，不勾 Mature content。/ Pick the required category from the current list; use the Egress site as the website and GitHub Issues for support; leave Mature content unchecked.
+- **Privacy**：Single Purpose、逐项权限理由、远程代码（No）、数据使用勾选与隐私政策 URL，与上方 Chrome 部分口径一致。/ Single purpose, per-permission justifications, remote code (No), data usage checkboxes and the privacy policy URL follow the Chrome answers above.
+- **Store listings**：名称和简短说明取自 manifest（中文，此处只读）；manifest 没有 `_locales`，要另加英文时在此添加语言。每种语言都要填写详细说明（至少 250 字符，沿用上方文案）和 logo。logo 用 [`store/edge-logo-300.png`](store/edge-logo-300.png)（300×300，由 `favicon.svg` 按 128 图标的留白比例渲染）；截图用 `store/` 中的 1280×800 PNG，最多 6 张。/ The name and short description come from the manifest (Chinese, read-only here); the manifest has no `_locales`, so add English here if wanted. Every language needs the detailed description (at least 250 characters; reuse the text above) and the logo [`store/edge-logo-300.png`](store/edge-logo-300.png) (300×300, rendered from `favicon.svg` with the 128 icon's padding ratio). Screenshots are the 1280×800 PNGs in `store/`, up to six.
+- **Notes for certification**：沿用上方审核备注中“To test”一段；无需测试账号。/ Reuse the “To test” paragraph of the reviewer notes above; no test account is needed.
+
 ## Opera 加载项 / Opera add-ons
 
 可选。上传 `-chrome.zip`，文案沿用英文版。上架前，站点在 Opera 中显示 Chrome 网上应用店链接，Opera 用户可借助 Opera 的“Install Chrome Extensions”扩展安装。
@@ -159,14 +171,18 @@ Optional. Upload `-chrome.zip` with the English listing. Until it is listed, the
 
 Use real UI captures, each a full-bleed 1280×800 PNG with square corners and no added padding. Enable IP masking and inspect the address bar, tab titles, tooltips and report fields for actual IPs, credentials and private content. Use only `203.0.113.10` for illustrative addresses; do not fabricate provider results or store availability.
 
-已拍摄（`browser-helper/store/`，不进安装包）：在 Firefox 159 中用 v1.3.4 打开线上页面，查询一个不属于维护者的公开地址并开启“隐藏 IP”，图中不显示地址。自动化浏览器会触发更多 Cloudflare 验证，所以 6 个来源停在“待验证”。
+已拍摄（`browser-helper/store/`，不进安装包）：打开线上页面，查询一个不属于维护者的公开地址并开启“隐藏 IP”，页面中不显示地址。自动化浏览器会触发更多 Cloudflare 验证，所以 6 个来源停在“待验证”。
 
-Captured (in `browser-helper/store/`, not packaged): the live page in Firefox 159 with helper v1.3.4, querying a public address that is not the maintainer's, with IP masking on and no address visible. The automated browser draws more Cloudflare challenges, so six providers wait for verification.
+Captured (in `browser-helper/store/`, not packaged): the live page querying a public address that is not the maintainer's, with IP masking on and no address shown in the page. The automated browser draws more Cloudflare challenges, so six providers wait for verification.
 
-- [`1-multi-source-types.png`](store/1-multi-source-types.png)：对应下方 1 与 3，插件行、补齐的类型与“去验证 / 停止等待”。Items 1 and 3: the helper row, supplied types and the verification and stop controls.
-- [`2-per-provider-details.png`](store/2-per-provider-details.png)：对应 2，只取插件通道的成功结果与耗时。Item 2, limited to the helper channel's results and timing.
+- [`1-multi-source-types.png`](store/1-multi-source-types.png)：Firefox 159、v1.3.4；对应下方 1 与 3，插件行、补齐的类型与“去验证 / 停止等待”。Firefox 159 with v1.3.4. Items 1 and 3: the helper row, supplied types and the verification and stop controls.
+- [`2-per-provider-details.png`](store/2-per-provider-details.png)：Firefox 159、v1.3.4；对应 2，只取插件通道的成功结果与耗时。Firefox 159 with v1.3.4. Item 2, limited to the helper channel's results and timing.
+- [`4-temporary-query-group.png`](store/4-temporary-query-group.png)：Firefox 159、v1.3.5 商店包；对应 4，整个浏览器窗口，标签栏中的“Egress 自动查询”组装着读取中和待验证的临时页，下方是同一轮查询的插件行。地址栏和一个标签标题中的目标地址用色块遮住；无头浏览器的界面截图不刷新网页内容，所以标签栏与工具栏和同一时刻的网页截图按内容区位置拼合，并去掉了自动化控制标记（地址栏斜纹与机器人图标）。Firefox 159 with the v1.3.5 store package. Item 4: the whole browser window, whose tab strip holds the “Egress 自动查询” group of reading and pending-verification tabs above the same query's helper row. The target address in the address bar and one tab title is covered with a block. Headless Firefox does not repaint page content in a browser-UI capture, so the tab strip and toolbar are joined at the content edge with a page capture taken at the same moment, and the automation marker (striped address bar and robot icon) is removed.
+- [`5-installation.png`](store/5-installation.png)：Chrome 157、未安装插件；对应 5 中商店上线前的部分：展开的“安装与手动导入”，含离线安装步骤、v1.3.5 离线 ZIP 入口和“源码与权限”。页脚隐私入口与这一块相距一屏以上，未入画。Chrome 157 without the helper. The pre-listing part of item 5: the expanded “安装与手动导入” panel with the offline installation steps, the v1.3.5 offline ZIP link and “源码与权限”. The footer privacy link is more than a screen away and is not in frame.
 
-4 需要浏览器标签栏，5 需要商店上线后在对应浏览器中拍摄，留给维护者。Item 4 needs the browser's tab strip and item 5 needs a live listing, so both remain for the maintainer.
+商店上线后，5 需要在对应浏览器中重拍出现商店链接的状态，留给维护者。After a listing goes live, item 5 needs a retake in that browser showing the store link, which remains for the maintainer.
+
+推广图（440×280 小图块、1400×560 大图）在 Chrome 和 Edge 都是可选项；Chrome 把没有小图块的扩展排在有图块的之后。是否制作由维护者决定。Promotional tiles (440×280 small, 1400×560 large) are optional in both Chrome and Edge; Chrome ranks extensions without a small tile after those with one. Whether to make them is the maintainer's call.
 
 1. **多源类型 / Multi-source types**：展示“多源 IP 类型”中的实际插件字段与插件连接状态，让用户看到扩展补齐的使用类型与公司类型。Show actual helper-supplied usage/company fields and the connected helper status.
 2. **逐源查询详情 / Per-provider query details**：展开“查询详情”，展示插件、API 与服务器通道，以及成功、失败原因和耗时。Expand query details to show helper, API and server channels with real outcomes and timing.

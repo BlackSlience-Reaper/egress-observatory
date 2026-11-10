@@ -4,12 +4,21 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Egress 自动网页查询扩展隐私政策：读取范围、数据用途、权限、缓存与临时标签清理。Includes the English privacy policy.">
-  <meta name="theme-color" content="#0b0c0f">
-  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#f7f7fa">
+  <meta name="color-scheme" content="light dark">
+  <script>
+    (function () {
+      var saved = null;
+      try { saved = localStorage.getItem('egress-theme'); } catch (e) {}
+      var theme = saved === 'light' || saved === 'dark' ? saved : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      document.documentElement.dataset.theme = theme;
+      document.querySelector('meta[name="theme-color"]').content = theme === 'dark' ? '#0b0c0f' : '#f7f7fa';
+    })();
+  </script>
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>扩展隐私政策 · Egress</title>
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./styles.css?v=3.5">
+  <link rel="stylesheet" href="./styles.css?v=3.10">
 </head>
 <body class="privacy-page">
   <a class="skip-link" href="#main">跳到隐私政策</a>

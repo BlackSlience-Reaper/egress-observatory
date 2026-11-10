@@ -74,7 +74,7 @@ export async function runTurnstile(container, health) {
     const timer = setTimeout(() => finish({ error: 'timeout' }), 60000);
     try {
       window.turnstile.render(container, {
-        sitekey: captchaConfig.turnstile, appearance: 'interaction-only', retry: 'never', 'refresh-expired': 'never', theme: 'dark', language: 'zh-cn',
+        sitekey: captchaConfig.turnstile, appearance: 'interaction-only', retry: 'never', 'refresh-expired': 'never', theme: 'auto', language: 'zh-cn',
         callback: token => finish({ token }),
         'before-interactive-callback': () => { interactive = true; },
         'error-callback': code => { finish({ error: String(code || 'error') }); return true; },
