@@ -209,7 +209,13 @@ function listValue(item) {
   return `${item.listed ? `命中 ${item.match}` : '未命中'}${neighbours}`;
 }
 
-let tipNode = null; let tipFor = null;
+let tipNode = null; let tipFor = null; let tipMode = null; let tipLabel = null; let focusLabel = null; let focusEl = null; let focusSection = null; let focusKey = null; let pointerX = -1; let pointerY = -1;
+// A visible label that survives a re-render: tags/tiles/usages carry a stable name element,
+// everything else keeps its own text. Used to re-find the same tip target after innerHTML replacement.
+const labelOf = el => (el.querySelector('.tag2-text, .tile-label, .use-name')?.textContent ?? el.textContent).replace(/\s+/g, ' ').trim();
+// A stable, unique identity for a tip target: type-matrix cells, plugin status buttons and geo tags
+// repeat the same display text across sources, so text alone cannot re-find the same element.
+const focusKeyOf = el => el.dataset.focusKey || (el.dataset.check ? `check:${el.dataset.check}` : '');
 // A multi-line tip's first line is its title: it goes into its own element so it bolds as a whole line
 // (::first-line would only bold the first laid-out line). A single-line tip gets no title at all.
 // Content is filled with textContent only — tips carry source-returned data.
@@ -225,29 +231,63 @@ function setTipContent(text) {
   body.textContent = rest.join('\n');
   tipNode.append(title, body);
 }
+// Shown from both the event handlers and afterRerender (which runs outside
+// initTooltips' scope), so it lives at module level.
+function showTip(target) {
+  tipFor = target;
+  setTipContent(target.dataset.tip);
+  tipNode.classList.add('on');
+  const rect = target.getBoundingClientRect(); const box = tipNode.getBoundingClientRect();
+  const above = rect.top - box.height - 8;
+  const top = above >= 8 ? above : rect.bottom + 8;
+  const left = Math.min(Math.max(8, rect.left + rect.width / 2 - box.width / 2), innerWidth - box.width - 8);
+  tipNode.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`;
+}
 export function initTooltips() {
   tipNode = document.createElement('div');
   tipNode.id = 'tip'; tipNode.setAttribute('role', 'tooltip');
   document.body.append(tipNode);
-  const show = target => {
-    tipFor = target;
-    setTipContent(target.dataset.tip);
-    tipNode.classList.add('on');
-    const rect = target.getBoundingClientRect(); const box = tipNode.getBoundingClientRect();
-    const above = rect.top - box.height - 8;
-    const top = above >= 8 ? above : rect.bottom + 8;
-    const left = Math.min(Math.max(8, rect.left + rect.width / 2 - box.width / 2), innerWidth - box.width - 8);
-    tipNode.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`;
-  };
-  const hide = () => { tipFor = null; tipNode.classList.remove('on'); };
+  const hide = () => { tipFor = null; tipMode = null; tipNode.classList.remove('on'); };
   const pick = event => event.target.closest?.('[data-tip]');
-  document.addEventListener('pointerover', event => { const target = pick(event); if (target?.dataset.tip) { if (target !== tipFor) show(target); } else if (tipFor) hide(); });
-  document.addEventListener('focusin', event => { const target = pick(event); if (target?.dataset.tip) show(target); });
+  document.addEventListener('pointerover', event => { const target = pick(event); if (target?.dataset.tip) { if (target !== tipFor) { tipMode = 'hover'; showTip(target); } } else if (tipFor) hide(); });
+  document.addEventListener('pointermove', event => { pointerX = event.clientX; pointerY = event.clientY; }, { passive: true });
+  document.addEventListener('focusin', event => { const target = pick(event); if (target?.dataset.tip) { tipMode = 'focus'; showTip(target); } });
   document.addEventListener('focusout', hide);
   addEventListener('scroll', hide, { passive: true });
   document.addEventListener('keydown', event => { if (event.key === 'Escape') hide(); });
 }
-export function refreshTip() { if (tipFor && !tipFor.isConnected) { tipFor = null; tipNode?.classList.remove('on'); } }
+export function beforeRerender() {
+  // Remember what the user was looking at (and what held focus) so afterRerender can put it back
+  // once the sections have rebuilt their innerHTML.
+  tipMode = tipFor?.isConnected && document.activeElement === tipFor ? 'focus' : tipFor?.isConnected ? 'hover' : null;
+  tipLabel = tipMode ? labelOf(tipFor) : null;
+  focusEl = document.activeElement?.matches?.('[data-tip]') ? document.activeElement : null;
+  // Scope the re-find to the element's own section: type labels and status
+  // buttons repeat across sources, so a whole-page match can restore focus
+  // onto another source's element (or its retry button).
+  focusSection = focusEl ? focusEl.closest('section') : null;
+  focusKey = focusEl ? focusKeyOf(focusEl) : null;
+  focusLabel = focusEl ? labelOf(focusEl) : null;
+}
+export function afterRerender() {
+  if (focusLabel) {
+    const el = focusEl; focusEl = null;
+    const scope = focusSection; focusSection = null;
+    const key = focusKey; focusKey = null;
+    if (el?.isConnected) { el.focus({ preventScroll: true }); return; } // section untouched: same node, keep it
+    const candidates = scope?.isConnected ? [...scope.querySelectorAll('[data-tip]')] : [];
+    // Unique identity first (source id + field); display text only as a last resort, within the same section.
+    const match = (key && candidates.find(candidate => focusKeyOf(candidate) === key))
+      || candidates.find(candidate => labelOf(candidate) === focusLabel);
+    focusLabel = null;
+    if (match) { match.focus({ preventScroll: true }); return; } // focusin re-opens the tip with fresh content
+  }
+  if (tipMode === 'hover' && pointerX >= 0) {
+    const under = document.elementFromPoint(pointerX, pointerY)?.closest?.('[data-tip]');
+    if (under) { showTip(under); return; } // same card still under the pointer: keep the tip, content updates
+  }
+  if (tipFor && !tipFor.isConnected) { tipFor = null; tipMode = null; tipNode?.classList.remove('on'); }
+}
 
 function itemPts(result, id) {
   return result.categories.flatMap(category => category.items).filter(item => item.id === id || item.id.startsWith(`${id}-`)).reduce((sum, item) => sum + item.pts, 0);
@@ -730,14 +770,14 @@ function typeCell(record, field, id) {
   if (!record || record.status === 'pending') return `<span class="ut ut-pending">${icon('pending')}等待返回</span>`;
   if (record.status !== 'ok') {
     const reason = record.webLookup?.error || record.error || '请求失败';
-    return `<button type="button" class="ut ut-off lookup-cell" data-lookup-details data-tip="${esc(reason)}">${lookupLabel(record.webLookup || record)}</button>`;
+    return `<button type="button" class="ut ut-off lookup-cell" data-lookup-details data-focus-key="type:${esc(id)}:${field}" data-tip="${esc(reason)}">${lookupLabel(record.webLookup || record)}</button>`;
   }
   if (field === 'companyType' && !GIVES_COMPANY.has(id) && !record.data.companyType) return '<span class="muted">—</span>';
   const value = record.data[field];
-  if (!value) return `<span class="ut ut-unknown" tabindex="0" data-tip="${esc([field === 'usageType' ? '这个来源没有给出明确的使用类型' : '这个来源没有给出公司类型',record.webLookup?.error || (record.webLookup?.status === 'ok' ? '官方网页已读取' : '')].filter(Boolean).join(' · '))}">${esc(field === 'usageType' && record.data.usageDetail || '未知')}</span>`;
+  if (!value) return `<span class="ut ut-unknown" tabindex="0" data-focus-key="type:${esc(id)}:${field}" data-tip="${esc([field === 'usageType' ? '这个来源没有给出明确的使用类型' : '这个来源没有给出公司类型',record.webLookup?.error || (record.webLookup?.status === 'ok' ? '官方网页已读取' : '')].filter(Boolean).join(' · '))}">${esc(field === 'usageType' && record.data.usageDetail || '未知')}</span>`;
   const via = record.data.importedFields?.includes(field) ? 'IPSuper' : record.data.webTypeFields?.includes(field) ? '官方网页' : field === 'usageType' ? record.data.usageVia : null;
   const hint = [SOURCES.find(source => source.id === id)?.name, UT_TIP[value], via && '补充来源：'+via].filter(Boolean).join('\n');
-  return `<span class="ut ut-${esc(value)}" tabindex="0" data-tip="${esc(hint)}">${esc(UT_LABEL[value] || value)}</span>`;
+  return `<span class="ut ut-${esc(value)}" tabindex="0" data-focus-key="type:${esc(id)}:${field}" data-tip="${esc(hint)}">${esc(UT_LABEL[value] || value)}</span>`;
 }
 
 export function renderTypes(run) {
@@ -760,7 +800,7 @@ export function renderTypes(run) {
     <tbody>
       <tr><th scope="row">使用类型</th>${ids.map(id => `<td>${markClash(typeCell(run.sources[id], 'usageType', id), run.sources[id], 'usageType', run)}</td>`).join('')}</tr>
       <tr><th scope="row">公司类型</th>${ids.map(id => `<td>${markClash(typeCell(run.sources[id], 'companyType', id), run.sources[id], 'companyType', run)}</td>`).join('')}</tr>
-      ${run.chrome?.version ? `<tr class="chrome-type-row"><th scope="row">插件</th>${ids.map(id=>{const row=run.chrome.rows[id];const failed=row?.status === 'error' && !row.challenge && run.chrome.retry;const retry=failed && chromeCanRetry(run.chrome.version);const tip=row ? lookupDetail(row)+(retry ? ' · 点击重新读取' : failed ? ` · 更新插件至 v${HELPER_FEATURES.retry} 后可点击重试` : '') : run.chrome.active ? '排队中' : '此版本插件未返回该来源';return `<td><button type="button" class="lookup-cell ${row?.status === 'ok' ? 'lookup-ok' : row?.challenge ? 'lookup-wait' : retry ? 'lookup-retry' : ''}" ${retry ? `data-chrome-retry="${esc(id)}"` : 'data-lookup-details'} data-tip="${esc(tip)}" aria-label="${esc((PAGE_PROVIDERS[id]?.name || id)+(retry ? ' 插件重新读取' : ' 插件查询详情'))}">${row ? lookupLabel(row) : run.chrome.active ? '排队' : '未返回'}</button></td>`;}).join('')}</tr>` : ''}
+      ${run.chrome?.version ? `<tr class="chrome-type-row"><th scope="row">插件</th>${ids.map(id=>{const row=run.chrome.rows[id];const failed=row?.status === 'error' && !row.challenge && run.chrome.retry;const retry=failed && chromeCanRetry(run.chrome.version);const tip=row ? lookupDetail(row)+(retry ? ' · 点击重新读取' : failed ? ` · 更新插件至 v${HELPER_FEATURES.retry} 后可点击重试` : '') : run.chrome.active ? '排队中' : '此版本插件未返回该来源';return `<td><button type="button" class="lookup-cell ${row?.status === 'ok' ? 'lookup-ok' : row?.challenge ? 'lookup-wait' : retry ? 'lookup-retry' : ''}" ${retry ? `data-chrome-retry="${esc(id)}"` : 'data-lookup-details'} data-focus-key="chrome:${esc(id)}" data-tip="${esc(tip)}" aria-label="${esc((PAGE_PROVIDERS[id]?.name || id)+(retry ? ' 插件重新读取' : ' 插件查询详情'))}">${row ? lookupLabel(row) : run.chrome.active ? '排队' : '未返回'}</button></td>`;}).join('')}</tr>` : ''}
     </tbody></table>
     <p class="muted small type-summary">使用：${esc(tally('usageType'))} · 公司：${esc(tally('companyType'))}${filled.length ? ` · 补充 ${filled.length} 项` : ''}</p>`;
   renderLookupStatus(run);
@@ -850,7 +890,7 @@ export function renderGeo(run, result) {
         <td><a href="${esc(source.site(run.ip))}" target="_blank" rel="noopener noreferrer"${d.sourceNote ? ` data-tip="${esc(d.sourceNote)}"` : ''}>${esc(source.name)}</a></td>
         <td>${d.country ? `${flag(d.country)}${esc(d.country)}${d.city ? ` · ${esc(d.city)}` : ''}` : '—'}</td>
         <td>${d.asn ? `AS${d.asn}` : '—'}</td><td class="org">${esc(d.org || '—')}</td>
-        <td>${tags.map(tag => `<span class="mini" tabindex="0" data-tip="${esc(`${source.name} 把这个 IP 标为「${tag}」`)}">${esc(tag)}</span>`).join('') || '<span class="muted">—</span>'}</td></tr>`;
+        <td>${tags.map((tag, i) => `<span class="mini" tabindex="0" data-focus-key="geo:${esc(source.id)}:${i}" data-tip="${esc(`${source.name} 把这个 IP 标为「${tag}」`)}">${esc(tag)}</span>`).join('') || '<span class="muted">—</span>'}</td></tr>`;
     }).join('')}</tbody></table>` : '<p class="muted">等待来源返回…</p>';
 }
 
