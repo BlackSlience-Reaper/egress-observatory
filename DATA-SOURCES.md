@@ -1,6 +1,6 @@
 # 公开查询服务的间接补充
 
-更新日期：2026-11-05。
+更新日期：2026-11-15。
 
 本站只把实际返回、且与目标 IP 一致的字段纳入结果。间接来源保留服务名称、版本或缓存时间；没有证据的原始数据库名称继续保持未确认。
 
@@ -19,6 +19,12 @@
 替换原先的 v1 Y/N 读取方式。v1 的 Y 包含机房、云平台等不同列表命中，不能统一当成代理。v3 分别读取 `proxy`、`tor`、`hosting`、`vpnasn`、`goodvpn` 等实际信号，保留分类、规则依据和服务版本。
 
 分类为 unknown 时，未命中信号不作为明确阴性票；分类置信度不换算成欺诈分。Spamhaus、SFS、IC3 的间接标记保留在报告中，避免同源情报重复扣分。该服务属于 ipinfo.app，不能归名为 IPinfo.io 数据库。
+
+## VPNDetection
+
+[官方接口说明](https://docs.vpndetection.io/api)公开 `https://api.vpndetection.io/{IP}`，无需 API key，支持 CORS，由浏览器直接查询。
+
+免 key 返回 `is_vpn`、`is_tor`、`is_relay`、`is_bogon`，以及国家、时区和 ASN（号码、名称、前缀、`asn.type`）。四个标记按 0.8 权重参与标签投票。`asn.type` 描述的是宣告该地址的网络，不是地址本身，因此与 ipapi.is 的 `asnType` 一样只展示，不作为使用类型；国家和时区只展示，不参与定位投票。
 
 ## Net Atlas
 
