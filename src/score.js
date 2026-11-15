@@ -28,6 +28,7 @@ export const SOURCE_WEIGHTS = Object.freeze({
   ipapiis: { flags: 0.9, type: 0.9, risk: 0.8 },
   ipapi: { flags: 0.8, type: 0.8 },
   ipquery: { flags: 0.8, risk: 0.5 },
+  vpndetection: { flags: 0.8 },
   ip2location: { flags: 0.6 },
   blackbox: { flags: 0.5, type: 0.5 },
   freeipapi: { flags: 0.4 },

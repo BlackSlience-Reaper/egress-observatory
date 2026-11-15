@@ -152,6 +152,22 @@ export const SOURCES = [
     },
   },
   {
+    // Keyless with CORS. asn.type describes the announcing network, not the address, so it is shown like
+    // ipapi.is's asnType rather than voted as a usage type; location is shown without a location vote.
+    id: 'vpndetection', name: 'VPNDetection', group: 'intel', site: ip => `https://vpndetection.io/${ip}`,
+    async run(ip, ctx) {
+      const { data } = await json(`https://api.vpndetection.io/${encodeURIComponent(ip)}`, ctx);
+      if (!data.ip) fail('未返回目标 IP');
+      checkIP(data.ip, ip);
+      return {
+        country: countryCode(data.location?.country), tz: text(data.location?.timezone),
+        asn: asnNumber(data.asn?.asn), org: text(data.asn?.name), prefix: text(data.asn?.prefix), asnType: text(data.asn?.type),
+        flags: flags({ vpn: bool(data.is_vpn), tor: bool(data.is_tor), relay: bool(data.is_relay), bogon: bool(data.is_bogon) }),
+        geoVote: false,
+      };
+    },
+  },
+  {
     id: 'ipapiis', name: 'ipapi.is', group: 'intel', site: ip => `https://ipapi.is/?q=${ip}`, quota: true,
     async run(ip, ctx) {
       const health = await ctx.healthReady;
