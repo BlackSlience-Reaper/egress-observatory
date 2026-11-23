@@ -878,6 +878,7 @@ function sourceValue(id, d) {
       return `${category} · Beta${d.spamhausListed === true ? ' · Spamhaus 标记' : ''}`;
     }
     case 'netcoffee': return (d.geoSources || []).map(r => r.id+' '+(r.city || r.country || '未知')).join(' · ') || '聚合查询';
+    case 'vpndetection': return [d.country, d.asn && `AS${d.asn}`, d.org, d.asnType && `ASN 类型 ${d.asnType}`, d.prefix, d.tz, d.flags?.bogon === true && '保留地址'].filter(Boolean).join(' · ');
     case 'netatlas': return [d.asn ? `AS${d.asn}` : '', d.prefix, d.city ? `${d.locationDatabase ? 'DB-IP' : '位置'} ${d.city}` : ''].filter(Boolean).join(' · ');
     case 'ipapimirror': return [d.country, d.usageType ? UT_LABEL[d.usageType] : '', '公开接口补充', d.cached ? '来源缓存' : ''].filter(Boolean).join(' · ');
     default: {
@@ -901,6 +902,11 @@ function sourceTone(id, d, run) {
   const f = d.flags || {};
   const consensus = run.result?.summary?.country;
   switch (id) {
+    case 'vpndetection':
+      if (f.tor || f.vpn || f.relay) break;
+      if (f.bogon === true) return tone('info', '保留地址');
+      return [f.vpn, f.tor, f.relay].every(value => value === false)
+        ? tone('good', '未检出 VPN、Tor 或中继') : tone('info', '匿名标记不全');
     case 'sfs': return d.appears ? tone('bad', '垃圾注册') : tone('good', '无记录');
     case 'onionoo': return f.tor ? tone('bad', 'Tor 出口') : d.torRelay ? tone('warn', 'Tor 中继') : tone('good', '非 Tor');
     case 'otx': return d.benign ? tone('good', '白名单') : d.pulses >= 3 ? tone('bad', '多份报告') : d.pulses ? tone('warn', '有报告') : tone('good', '无报告');

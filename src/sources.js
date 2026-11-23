@@ -157,14 +157,15 @@ export const SOURCES = [
     id: 'vpndetection', name: 'VPNDetection', group: 'intel', site: ip => `https://vpndetection.io/${ip}`,
     async run(ip, ctx) {
       const { data } = await json(`https://api.vpndetection.io/${encodeURIComponent(ip)}`, ctx);
-      if (!data.ip) fail('未返回目标 IP');
+      if (!data?.ip) fail('未返回目标 IP');
       checkIP(data.ip, ip);
-      return {
+      const info = {
         country: countryCode(data.location?.country), tz: text(data.location?.timezone),
         asn: asnNumber(data.asn?.asn), org: text(data.asn?.name), prefix: text(data.asn?.prefix), asnType: text(data.asn?.type),
-        flags: flags({ vpn: bool(data.is_vpn), tor: bool(data.is_tor), relay: bool(data.is_relay), bogon: bool(data.is_bogon) }),
-        geoVote: false,
       };
+      const labels = { vpn: bool(data.is_vpn), tor: bool(data.is_tor), relay: bool(data.is_relay), bogon: bool(data.is_bogon) };
+      if (![...Object.values(info), ...Object.values(labels)].some(value => value != null)) fail('未返回可用字段');
+      return { ...info, flags: flags(labels), geoVote: false, asnVote: false };
     },
   },
   {

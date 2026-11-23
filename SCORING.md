@@ -103,7 +103,7 @@ E = H ÷ (H + N)                                     扣分 = 该项满分 × E
 | ip-api.com | 0.8 | 0.8 | — | 1 |
 | IPData | 0.8 | 0.8 | 0.8 | 1 |
 | IPQuery | 0.8 | — | 0.5 | 1 |
-| VPNDetection | 0.8 | — | — | — |
+| VPNDetection（VPN、Tor、中继；Bogon 仅展示） | 0.8 | — | — | — |
 | IP2Location | 0.6 | 0.5 | — | 1 |
 | IPLocate | 0.9 | 0.8 | — | 1 |
 | Scamalytics | 0.8 | — | 1.1 | — |

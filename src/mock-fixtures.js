@@ -92,10 +92,10 @@ const SPLIT = {
 
 const SCENARIOS = {
   clean: { label: '干净家宽', ip: '203.0.113.10', net: HOME },
-  datacenter: { label: '机房加代理', ip: '198.51.100.20', v6: '2001:db8::20', net: CLOUD },
+  datacenter: { label: '机房加代理', ip: '198.51.100.20', v6: '2001:db8::20', net: CLOUD, vpnDetectionFlags: { is_vpn: true, is_tor: false, is_relay: false, is_bogon: false } },
   split: { label: '国内外分流', ip: '203.0.113.60', domestic: '192.0.2.99', net: SPLIT },
   partial: {
-    label: '部分来源失败', ip: '192.0.2.30', net: HOME,
+    label: '部分来源失败', ip: '192.0.2.30', net: HOME, vpnDetectionFlags: { is_vpn: false, is_bogon: false },
     faults: [
       [/^https:\/\/ipapi\.co\//, 500], [/^https:\/\/ipwho\.is\//, 'network'], [/^https:\/\/api\.ipquery\.io\//, 'html'],
       [/^api:\/v1\/proxycheck/, 502], [/^api:\/v1\/ipqs/, 503], [/maxmind-geo-lite/, 503], [/otx\.alienvault\.com/, 'network'],
@@ -105,11 +105,11 @@ const SCENARIOS = {
   ratelimit: {
     label: '限流（429）', ip: '203.0.113.40', net: HOME,
     // The local lookup service is down here too, so page lookups reach the rate-limited API route.
-    faults: [[/^api:\/v1\//, 429], [/:4188\/lookup\//, 'network'], [/^https:\/\/(?:ipapi\.co|ipwho\.is|www\.iplocate\.io|ipok\.io|api\.ipquery\.io|ipinfo\.io)\//, 429]],
+    faults: [[/^api:\/v1\//, 429], [/:4188\/lookup\//, 'network'], [/^https:\/\/(?:ipapi\.co|ipwho\.is|www\.iplocate\.io|ipok\.io|api\.ipquery\.io|api\.vpndetection\.io|ipinfo\.io)\//, 429]],
   },
   timeout: {
     label: '来源超时', ip: '203.0.113.50', net: HOME,
-    faults: [[/^api:\/v1\/(?:ip2location|dbip)/, 'hang'], [/^https:\/\/(?:ipleak\.net|rdap\.org\/ip|ip\.guide\/\d|get\.geojs\.io|myip\.ipip\.net)/, 'hang'], [/bl\.spamcop\.net/, 'hang']],
+    faults: [[/^api:\/v1\/(?:ip2location|dbip)/, 'hang'], [/^https:\/\/(?:ipleak\.net|rdap\.org\/ip|ip\.guide\/\d|get\.geojs\.io|api\.vpndetection\.io|myip\.ipip\.net)/, 'hang'], [/bl\.spamcop\.net/, 'hang']],
   },
 };
 
@@ -118,7 +118,7 @@ const SCENARIOS = {
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
 const status = (code, body, headers = {}) => new Response(JSON.stringify(body), { status: code, headers: { ...JSON_HEADERS, ...headers } });
 
-function routes({ ip: self, v6, domestic, net }) {
+function routes({ ip: self, v6, domestic, net, vpnDetectionFlags }) {
   const { flags: f } = net;
   const worker = (route, ip) => ({
     status: 'success', ip, country: net.country, region: net.region, city: net.city, lat: net.lat, lon: net.lon, asn: net.asn, org: net.org, timezone: net.tz,
@@ -191,6 +191,14 @@ function routes({ ip: self, v6, domestic, net }) {
       location: { country_code: net.country, state: net.region, city: net.city, latitude: net.lat, longitude: net.lon, timezone: net.tz },
       risk: { is_vpn: f.vpn, is_proxy: f.proxy, is_tor: f.tor, is_datacenter: f.hosting, is_mobile: false, risk_score: net.risk },
     })],
+    [/^https:\/\/api\.vpndetection\.io\/([^/?]+)$/, ([, target]) => {
+      const ip = decode(target);
+      return {
+        ip, ...(vpnDetectionFlags || { is_vpn: f.vpn, is_tor: f.tor, is_relay: f.relay, is_bogon: f.bogon }),
+        location: { country: net.country, timezone: net.tz },
+        asn: { asn: net.asn, name: net.org, prefix: prefixOf(ip), type: net.asnType },
+      };
+    }],
     [/^https:\/\/ipwho\.is\/(.+)$/, ([, ip]) => ({
       success: true, ip: decode(ip), country_code: net.country, region: net.region, city: net.city, latitude: net.lat, longitude: net.lon,
       timezone: { id: net.tz }, connection: { asn: net.asn, org: net.org, isp: net.org, domain: net.domain },
