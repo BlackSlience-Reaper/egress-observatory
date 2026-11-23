@@ -62,7 +62,7 @@ jobs:
           cat > "$notes" <<EOF
           Source commit: ${GITHUB_SHA}
 
-          - Offline ZIP: extract and load the browser-helper directory in Chromium browsers.
+          - Offline ZIP: extract into a folder and load that folder (the one containing manifest.json) in Chromium browsers.
           - Chrome ZIP: store upload package for Chrome, Edge and Opera.
           - Firefox ZIP: upload package requiring Mozilla signing before installation.
 
