@@ -72,11 +72,11 @@ def update_references(version, stores):
             print(f"Updated {name}")
 
 
-def write_zip(path, files, prefix="", manifest=None):
+def write_zip(path, files, *, manifest=None):
     path.parent.mkdir(parents=True, exist_ok=True)
     with ZipFile(path, "w", compression=ZIP_DEFLATED, compresslevel=9) as archive:
         for name in sorted(files):
-            entry = ZipInfo(prefix + name, date_time=(1980, 1, 1, 0, 0, 0))
+            entry = ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
             entry.create_system = 3
             entry.external_attr = 0o100644 << 16
             data = manifest if name == "manifest.json" and manifest is not None else (HELPER / name).read_bytes()
@@ -91,7 +91,7 @@ def main():
         raise ValueError("Invalid manifest version")
     files = set(RUNTIME_FILES) | set(manifest["icons"].values())
     update_references(version, store_lines(store_urls()))
-    write_zip(ROOT / "downloads" / f"egress-browser-helper-v{version}.zip", files | {"README.md"}, "browser-helper/")
+    write_zip(ROOT / "downloads" / f"egress-browser-helper-v{version}.zip", files | {"README.md"})
     for target, patch in TARGETS.items():
         built = None
         if patch:
