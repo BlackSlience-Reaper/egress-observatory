@@ -28,6 +28,7 @@ export const SOURCE_WEIGHTS = Object.freeze({
   ipapiis: { flags: 0.9, type: 0.9, risk: 0.8 },
   ipapi: { flags: 0.8, type: 0.8 },
   ipquery: { flags: 0.8, risk: 0.5 },
+  vpndetection: { flags: 0.8 },
   ip2location: { flags: 0.6 },
   blackbox: { flags: 0.5, type: 0.5 },
   freeipapi: { flags: 0.4 },
@@ -256,9 +257,9 @@ export function score(evidence) {
   const city = cityRank[0]?.value || null;
   const tzRank = locationFieldRank('tz');
   const ipTimezone = tzRank[0]?.value || null;
-  const asnRank = weightedRank(sources.filter(source => source.asn).map(source => ({ value: source.asn, w: geoWeight(source), by: source.name })));
+  const asnRank = weightedRank(sources.filter(source => source.asnVote !== false && source.asn).map(source => ({ value: source.asn, w: geoWeight(source), by: source.name })));
   const asn = evidence.asn?.asn || asnRank[0]?.value || null;
-  const orgRank = weightedRank(sources.filter(source => source.org).map(source => ({ value: source.org, w: geoWeight(source), by: source.name })));
+  const orgRank = weightedRank(sources.filter(source => source.asnVote !== false && source.org).map(source => ({ value: source.org, w: geoWeight(source), by: source.name })));
   const hostname = sources.find(source => source.hostname)?.hostname || null;
 
   // ---------- the announcing ASN: its profile, reputation and how far it vouches for the IP ----------
