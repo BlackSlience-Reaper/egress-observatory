@@ -1,4 +1,4 @@
-# Egress 浏览器扩展 v1.3.5
+# Egress 浏览器扩展 v1.3.6
 
 [隐私政策 / Privacy policy](https://blackslience-reaper.github.io/egress-observatory/privacy.html)
 
@@ -15,9 +15,9 @@
 
 ## 离线安装
 
-适用于 Chrome、Edge 等 Chromium 浏览器，供访问不了 Chrome 网上应用店或想先审查代码时使用：[下载 ZIP](https://blackslience-reaper.github.io/egress-observatory/downloads/egress-browser-helper-v1.3.5.zip)。
+适用于 Chrome、Edge 等 Chromium 浏览器，供访问不了 Chrome 网上应用店或想先审查代码时使用：[下载 ZIP](https://blackslience-reaper.github.io/egress-observatory/downloads/egress-browser-helper-v1.3.6.zip)。
 
-解压后，在 `chrome://extensions`（Edge 为 `edge://extensions`）开启开发者模式，加载 `browser-helper` 文件夹。离线安装不会自动更新：更新时替换原目录文件并点“重新加载”，再刷新 Egress 页面。点击“查询”或“重新检测”触发读取。
+将 ZIP 解压到单独的文件夹。在 `chrome://extensions`（Edge 为 `edge://extensions`）开启开发者模式，点击“加载已解压的扩展程序”，选择直接包含 `manifest.json` 的文件夹。v1.3.5 及更早的离线包需要再进入一层 `browser-helper`。更新时把新版文件解压到原先加载的目录，点“重新加载”，再刷新 Egress 页面。点击“查询”或“重新检测”触发读取。
 
 Firefox 正式版只能长期安装签名过的扩展，请从 Firefox 附加组件安装。开发调试时，在 `about:debugging` 的“此 Firefox”中点“临时载入附加组件”，选择 `pack.py` 生成的 `dist/egress-browser-helper-v<版本>-firefox.zip`；重启 Firefox 后失效。
 
