@@ -163,7 +163,7 @@ function scheduleRender() {
     const result = compute(run);
     run.result = result;
     document.body.classList.add('has-result');
-    view.beforeRerender();
+    const tipState = view.beforeRerender();
     view.renderHero(run, result, app);
     view.renderChecks(run, result);
     view.renderUses(result);
@@ -176,7 +176,7 @@ function scheduleRender() {
     view.renderProgress(run, result);
     view.renderEgress(app.egress, run, app);
     view.applyMask(app.masked);
-    view.afterRerender();
+    view.afterRerender(tipState);
   });
 }
 

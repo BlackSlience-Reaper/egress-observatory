@@ -91,7 +91,7 @@ const ASN_LABEL = { isp: 'ISP', mobile: '移动运营商', hosting: '机房 / �
  * parts: [{ value, share }] sorted desc. Shows up to two parts; the gradient sits at their split.
  * tone overrides a value's colour; conflict ('bad' | 'warn') marks a label that the detection contradicts (red + "!").
  */
-function mixTag({ parts, labels, certainty = 1, tip = '', size = '', tone = {}, conflict = null }) {
+function mixTag({ key, parts, labels, certainty = 1, tip = '', size = '', tone = {}, conflict = null }) {
   const shown = (parts || []).filter((part, index) => index === 0 || part.share >= 0.2).slice(0, 2);
   if (!shown.length) return '<span class="muted">—</span>';
   const mixed = shown.length === 2;
@@ -101,7 +101,7 @@ function mixTag({ parts, labels, certainty = 1, tip = '', size = '', tone = {}, 
   const c2 = mixed ? color(shown[1].value) : c1;
   const split = mixed ? Math.round(shown[0].share / (shown[0].share + shown[1].share) * 100) : 100;
   const unsure = certainty < UNSURE;
-  return `<span class="tag2 ${size}${mixed ? ' mixed' : ''}${unsure ? ' unsure' : ''}${conflict ? ` conflict conflict-${conflict}` : ''}" tabindex="0" data-tip="${esc(tip)}" style="--c1:${c1};--c2:${c2};--split:${split}%">`
+  return `<span class="tag2 ${size}${mixed ? ' mixed' : ''}${unsure ? ' unsure' : ''}${conflict ? ` conflict conflict-${conflict}` : ''}" tabindex="0" data-focus-key="${key}" data-tip="${esc(tip)}" style="--c1:${c1};--c2:${c2};--split:${split}%">`
     + `<span class="tag2-text">${esc(shown.map(part => name(part.value)).join(' / '))}</span>${unsure ? '<i class="q" aria-label="不确定">?</i>' : ''}${conflict ? '<i class="x" aria-label="与检测结果矛盾">!</i>' : ''}</span>`;
 }
 
@@ -131,7 +131,7 @@ function typeTag(result) {
   if (t.hosting.clear.length) lines.push(`未标记机房：${t.hosting.clear.join('、')}`);
   lines.push(certaintyLine(t.certainty));
   const tone = clash ? { residential: clash.level, mobile: clash.level } : {};
-  return mixTag({ parts: t.mix, labels: IP_TYPE_LABEL, certainty: t.certainty, tip: lines.join('\n'), tone, conflict: clash?.level });
+  return mixTag({ key: 'ip-type', parts: t.mix, labels: IP_TYPE_LABEL, certainty: t.certainty, tip: lines.join('\n'), tone, conflict: clash?.level });
 }
 
 /** The ASN's own claim (PeeringDB, its name) that independent evidence contradicts, if any. */
@@ -150,8 +150,8 @@ function asnTag(run, size = '') {
     inferred.mix.slice(0, 4).map(part => `${ASN_LABEL[part.value]} ${pct(part.share)}`).join(' · '),
     `推断置信 ${pct(inferred.confidence)}${inferred.confidence < UNSURE ? '：依据少或互相矛盾，所以标了 ?' : ''}`, '依据：', ...inferred.reasons.map(reason => `· ${reason}`)];
   // A self-declared type that independent evidence contradicts is shown as the claim itself ("ISP"), in red or yellow.
-  if (clash) return mixTag({ parts: [{ value: clash.cls, share: 1 }], labels: ASN_LABEL, tip: lines.join('\n'), size, tone: { [clash.cls]: clash.level }, conflict: clash.level });
-  return mixTag({ parts: inferred.mix, labels: ASN_LABEL, certainty: inferred.confidence, tip: lines.join('\n'), size });
+  if (clash) return mixTag({ key: 'asn-type', parts: [{ value: clash.cls, share: 1 }], labels: ASN_LABEL, tip: lines.join('\n'), size, tone: { [clash.cls]: clash.level }, conflict: clash.level });
+  return mixTag({ key: 'asn-type', parts: inferred.mix, labels: ASN_LABEL, certainty: inferred.confidence, tip: lines.join('\n'), size });
 }
 
 /** Why a source's 家宽 / 移动 label is contradicted: the IP is judged a datacenter, or its ASN is one by independent evidence. */
@@ -180,14 +180,14 @@ function nativeTag(result) {
   const parts = [{ value: 'native', share }, { value: 'broadcast', share: 1 - share }].sort((a, b) => b.share - a.share);
   const labels = (value, mixed) => value === 'native' ? (mixed ? '原生' : '原生 IP') : (mixed ? `广播·${n.regCountry === country ? n.regVotes.find(item => item.value !== country)?.value : n.regCountry}` : `广播 IP · 注册地 ${n.regCountry}`);
   const lines = ['IP 原生性：注册国家与定位国家是否一致', `定位国家 ${country}`, ...n.regVotes.map(item => `注册地 ${item.value}：${item.by.join('、')}`), certaintyLine(n.certainty)];
-  return mixTag({ parts, labels, certainty: n.certainty, tip: lines.join('\n') });
+  return mixTag({ key: 'native', parts, labels, certainty: n.certainty, tip: lines.join('\n') });
 }
 
 function leaseTag(result) {
   const lease = result.checks.lease;
   if (!lease || !(lease.leased || lease.possible)) return '';
   const certainty = lease.confidence >= 0.7 ? 1 : 0.5;
-  return mixTag({ parts: [{ value: 'leased', share: 1 }], labels: { leased: lease.leased ? '租赁地址段' : '可能租赁' }, certainty,
+  return mixTag({ key: 'leased', parts: [{ value: 'leased', share: 1 }], labels: { leased: lease.leased ? '租赁地址段' : '可能租赁' }, certainty,
     tip: ['地址段像是租来或转售的（代理商常用）', `把握 ${pct(lease.confidence)}`, ...lease.reasons.map(reason => `· ${reason}`)].join('\n') });
 }
 
@@ -199,7 +199,7 @@ function asnRepTag(run, result) {
   const tip = ['ASN 信誉：整个 ASN 的地址里近期有多少在威胁列表上', `宣告 ${rep.size.toLocaleString()} 个 IPv4，近期上榜 ${rep.listed.toLocaleString()} 次`,
     ...Object.entries(rep.counts).filter(([, count]) => count).map(([name, count]) => `· ${name} ${count}`),
     `密度 ${rep.per10k} / 万，全网平均 ${rep.baseline} / 万，约为平均的 ${rep.ratio} 倍`].join('\n');
-  return `${mixTag({ parts: [{ value: tone === 'good' ? 'residential' : tone === 'warn' ? 'hosting' : 'bad', share: 1 }], labels: { residential: label, hosting: label, bad: label }, tip })} <span class="muted small">${rep.per10k} / 万 · 平均 ${rep.ratio} 倍</span>`;
+  return `${mixTag({ key: 'asn-rep', parts: [{ value: tone === 'good' ? 'residential' : tone === 'warn' ? 'hosting' : 'bad', share: 1 }], labels: { residential: label, hosting: label, bad: label }, tip })} <span class="muted small">${rep.per10k} / 万 · 平均 ${rep.ratio} 倍</span>`;
 }
 
 function listValue(item) {
@@ -209,13 +209,20 @@ function listValue(item) {
   return `${item.listed ? `命中 ${item.match}` : '未命中'}${neighbours}`;
 }
 
-let tipNode = null; let tipFor = null; let tipMode = null; let tipLabel = null; let focusLabel = null; let focusEl = null; let focusSection = null; let focusKey = null; let pointerX = -1; let pointerY = -1;
-// A visible label that survives a re-render: tags/tiles/usages carry a stable name element,
-// everything else keeps its own text. Used to re-find the same tip target after innerHTML replacement.
-const labelOf = el => (el.querySelector('.tag2-text, .tile-label, .use-name')?.textContent ?? el.textContent).replace(/\s+/g, ' ').trim();
-// A stable, unique identity for a tip target: type-matrix cells, plugin status buttons and geo tags
-// repeat the same display text across sources, so text alone cannot re-find the same element.
-const focusKeyOf = el => el.dataset.focusKey || (el.dataset.check ? `check:${el.dataset.check}` : '');
+let tipNode, tipFor, tipMode;
+let pointerX, pointerY;
+
+// Each rebuilt target has a semantic key within its persistent render container.
+// Unchanged controls (including static header buttons) keep their DOM identity.
+function rememberTarget(el) {
+  return el && { el, root: el.closest('[id]'), key: el.dataset.focusKey };
+}
+function currentTarget(target) {
+  if (!target) return null;
+  if (target.el.isConnected) return target.el.dataset.tip ? target.el : null;
+  return target.key && target.root?.isConnected
+    ? target.root.querySelector(`[data-tip][data-focus-key="${CSS.escape(target.key)}"]`) : null;
+}
 // A multi-line tip's first line is its title: it goes into its own element so it bolds as a whole line
 // (::first-line would only bold the first laid-out line). A single-line tip gets no title at all.
 // Content is filled with textContent only — tips carry source-returned data.
@@ -233,11 +240,14 @@ function setTipContent(text) {
 }
 // Shown from both the event handlers and afterRerender (which runs outside
 // initTooltips' scope), so it lives at module level.
-function showTip(target) {
+function showTip(target, mode) {
   tipFor = target;
+  tipMode = mode;
   setTipContent(target.dataset.tip);
-  tipNode.classList.add('on');
-  const rect = target.getBoundingClientRect(); const box = tipNode.getBoundingClientRect();
+  const rect = target.getBoundingClientRect();
+  // Keyboard focus can scroll smoothly into view over several render frames.
+  tipNode.classList.toggle('on', rect.top < innerHeight && rect.bottom > 0);
+  const box = tipNode.getBoundingClientRect();
   const above = rect.top - box.height - 8;
   const top = above >= 8 ? above : rect.bottom + 8;
   const left = Math.min(Math.max(8, rect.left + rect.width / 2 - box.width / 2), innerWidth - box.width - 8);
@@ -247,46 +257,46 @@ export function initTooltips() {
   tipNode = document.createElement('div');
   tipNode.id = 'tip'; tipNode.setAttribute('role', 'tooltip');
   document.body.append(tipNode);
-  const hide = () => { tipFor = null; tipMode = null; tipNode.classList.remove('on'); };
   const pick = event => event.target.closest?.('[data-tip]');
-  document.addEventListener('pointerover', event => { const target = pick(event); if (target?.dataset.tip) { if (target !== tipFor) { tipMode = 'hover'; showTip(target); } } else if (tipFor) hide(); });
-  document.addEventListener('pointermove', event => { pointerX = event.clientX; pointerY = event.clientY; }, { passive: true });
-  document.addEventListener('focusin', event => { const target = pick(event); if (target?.dataset.tip) { tipMode = 'focus'; showTip(target); } });
-  document.addEventListener('focusout', hide);
-  addEventListener('scroll', hide, { passive: true });
-  document.addEventListener('keydown', event => { if (event.key === 'Escape') hide(); });
+  document.addEventListener('pointermove', event => {
+    // Layout changes can put a different card under a stationary pointer.
+    if (event.clientX === pointerX && event.clientY === pointerY) return;
+    pointerX = event.clientX; pointerY = event.clientY;
+    const target = pick(event);
+    if (target?.dataset.tip) {
+      if (target !== tipFor || tipMode !== 'hover') showTip(target, 'hover');
+    } else hideTip();
+  }, { passive: true });
+  document.addEventListener('pointerout', event => {
+    if (!event.relatedTarget) { pointerX = pointerY = undefined; if (tipMode === 'hover') hideTip(); }
+  });
+  document.addEventListener('focusin', event => {
+    const target = pick(event);
+    if (target?.dataset.tip) showTip(target, 'focus');
+  });
+  document.addEventListener('focusout', () => { if (tipMode === 'focus') hideTip(); });
+  addEventListener('scroll', () => { if (tipFor) refreshTip(tipFor, tipMode); }, { passive: true });
+  document.addEventListener('keydown', event => { if (event.key === 'Escape') hideTip(); });
+}
+function hideTip() {
+  tipFor = tipMode = null;
+  tipNode.classList.remove('on');
 }
 export function beforeRerender() {
-  // Remember what the user was looking at (and what held focus) so afterRerender can put it back
-  // once the sections have rebuilt their innerHTML.
-  tipMode = tipFor?.isConnected && document.activeElement === tipFor ? 'focus' : tipFor?.isConnected ? 'hover' : null;
-  tipLabel = tipMode ? labelOf(tipFor) : null;
-  focusEl = document.activeElement?.matches?.('[data-tip]') ? document.activeElement : null;
-  // Scope the re-find to the element's own section: type labels and status
-  // buttons repeat across sources, so a whole-page match can restore focus
-  // onto another source's element (or its retry button).
-  focusSection = focusEl ? focusEl.closest('section') : null;
-  focusKey = focusEl ? focusKeyOf(focusEl) : null;
-  focusLabel = focusEl ? labelOf(focusEl) : null;
+  const active = document.activeElement;
+  return { focus: rememberTarget(active?.matches('[data-tip]') ? active : null),
+    tip: rememberTarget(tipFor), mode: tipMode };
 }
-export function afterRerender() {
-  if (focusLabel) {
-    const el = focusEl; focusEl = null;
-    const scope = focusSection; focusSection = null;
-    const key = focusKey; focusKey = null;
-    if (el?.isConnected) { el.focus({ preventScroll: true }); return; } // section untouched: same node, keep it
-    const candidates = scope?.isConnected ? [...scope.querySelectorAll('[data-tip]')] : [];
-    // Unique identity first (source id + field); display text only as a last resort, within the same section.
-    const match = (key && candidates.find(candidate => focusKeyOf(candidate) === key))
-      || candidates.find(candidate => labelOf(candidate) === focusLabel);
-    focusLabel = null;
-    if (match) { match.focus({ preventScroll: true }); return; } // focusin re-opens the tip with fresh content
-  }
-  if (tipMode === 'hover' && pointerX >= 0) {
-    const under = document.elementFromPoint(pointerX, pointerY)?.closest?.('[data-tip]');
-    if (under) { showTip(under); return; } // same card still under the pointer: keep the tip, content updates
-  }
-  if (tipFor && !tipFor.isConnected) { tipFor = null; tipMode = null; tipNode?.classList.remove('on'); }
+export function afterRerender({ focus, tip, mode }) {
+  const active = currentTarget(focus);
+  if (active && active !== document.activeElement) active.focus({ preventScroll: true });
+  refreshTip(currentTarget(tip), mode);
+}
+function refreshTip(target, mode) {
+  if (target && (mode === 'focus' ? target === document.activeElement
+    : document.elementFromPoint(pointerX, pointerY)?.closest('[data-tip]') === target)) {
+    showTip(target, mode);
+  } else if (tipFor) hideTip();
 }
 
 function itemPts(result, id) {
@@ -312,7 +322,7 @@ function renderRing(result, g) {
 // A score item resting on an uncertain label or a likely misjudgement: "?" beside it, the reason in its tooltip.
 const QMARK = '<i class="qmark" aria-label="证据不足或可能误判，按比例计">?</i>';
 const itemTip = item => [item.detail, item.unsure ? `? ${item.why}` : ''].filter(Boolean).join('\n');
-const scoreLine = (item, plus = false) => `<li class="${plus ? 'plus' : ''}${item.unsure ? ' unsure' : ''}" tabindex="0" data-tip="${esc(itemTip(item))}"><span class="dot"></span><b>${plus ? '+' : '−'}${fmt(item.pts)}</b> ${esc(item.label)}${item.unsure ? QMARK : ''}</li>`;
+const scoreLine = (item, plus = false) => `<li class="${plus ? 'plus' : ''}${item.unsure ? ' unsure' : ''}" tabindex="0" data-focus-key="score:${plus ? 'bonus' : 'deduction'}:${esc(item.id)}" data-tip="${esc(itemTip(item))}"><span class="dot"></span><b>${plus ? '+' : '−'}${fmt(item.pts)}</b> ${esc(item.label)}${item.unsure ? QMARK : ''}</li>`;
 const signed = value => (value > 0 ? `+${value}` : value < 0 ? `−${-value}` : '±0');
 
 /** What the IP itself scores and what this connection adds or costs, side by side. */
@@ -342,7 +352,7 @@ export function renderHero(run, result, view) {
   renderRing(result, g);
   $('verdict').innerHTML = `
     <div class="verdict-head"><span class="verdict-label tone-${g.tone}">${esc(g.label)}</span>
-      <span class="confidence c-${result.confidence.level}" tabindex="0" data-tip="评分可信程度&#10;成功来源 ${result.confidence.sources} 个；匿名类字段 ${result.confidence.anonSources} 个来源">置信度${{ high: '高', medium: '中', low: '低' }[result.confidence.level]}</span>
+      <span class="confidence c-${result.confidence.level}" tabindex="0" data-focus-key="confidence" data-tip="评分可信程度&#10;成功来源 ${result.confidence.sources} 个；匿名类字段 ${result.confidence.anonSources} 个来源">置信度${{ high: '高', medium: '中', low: '低' }[result.confidence.level]}</span>
       ${pending ? `<span class="pending-note">${icon('pending')}正在等待 ${pending} 个第三方来源返回，分数可能还会变化</span>` : ''}</div>
     <p class="verdict-text">${esc(result.verdict)}</p>
     ${scoreGroups(run, result)}`;
@@ -365,7 +375,7 @@ export function renderEgress(egress, run, view) {
     const target = run && item.ip && run.ip === item.ip;
     return `<li class="${target ? 'is-target' : ''}">
       <span class="eg-name">${esc(item.name)}</span>
-      ${item.status === 'pending' ? `<span class="muted">${icon('pending')}等待返回</span>` : item.ip ? `<button type="button" class="eg-ip" data-check="${esc(item.ip)}" data-tip="检测这个 IP">${ipSpan(item.ip, view.masked)}</button>` : '<span class="muted">无响应</span>'}
+      ${item.status === 'pending' ? `<span class="muted">${icon('pending')}等待返回</span>` : item.ip ? `<button type="button" class="eg-ip" data-check="${esc(item.ip)}" data-focus-key="egress:${esc(item.name)}:${esc(item.ip)}" data-tip="检测这个 IP">${ipSpan(item.ip, view.masked)}</button>` : '<span class="muted">无响应</span>'}
     </li>`;
   }).join('');
   const note = egress.split ? `<p class="eg-note warn">${icon('warn')}${esc(egress.summary)}</p>`
@@ -386,7 +396,7 @@ function gauge(value, { low = '高危', high = '可信', label = '' } = {}) {
 }
 
 function tile({ label, level, value, sub, pts, title, wide = false }) {
-  return `<div class="tile lv-${level}${pts >= 1 ? ' has-pen' : ''}${wide ? ' tile-wide' : ''}" ${title ? `tabindex="0" data-tip="${esc(title)}"` : ''}>
+  return `<div class="tile lv-${level}${pts >= 1 ? ' has-pen' : ''}${wide ? ' tile-wide' : ''}" ${title ? `tabindex="0" data-focus-key="tile:${esc(label)}" data-tip="${esc(title)}"` : ''}>
     <div class="tile-head">${icon(level)}<span class="tile-label">${esc(label)}</span>${pen(pts)}</div>
     <div class="tile-value">${level === 'pending' && value === '—' ? WAIT : value}${sub ? ` <small>${sub}</small>` : ''}</div>
   </div>`;
@@ -599,7 +609,7 @@ export function renderUses(result) {
     const body = use.gate ? `<span class="use-why">${esc(use.gate)}</span>`
       : top.length ? `<ul class="use-items">${top.map(item => `<li><b>−${fmt(item.pts)}</b><span>${esc(item.label)}${item.unsure ? QMARK : ''}</span></li>`).join('')}</ul>`
         : `<span class="use-why">${esc(use.why)}</span>`;
-    return `<div class="use lv-${use.level}" tabindex="0" data-tip="${esc(tip)}">
+    return `<div class="use lv-${use.level}" tabindex="0" data-focus-key="use:${esc(id)}" data-tip="${esc(tip)}">
       <div class="use-head"><span class="use-name">${esc(name)}</span><span class="use-badge"><strong>${use.score}</strong>${esc(USE_LEVEL[use.level])}</span></div>
       ${gauge(use.score, { label: `${name} ${use.score} 分` })}
       ${body}
@@ -695,7 +705,7 @@ export function renderASN(run, result) {
       ${row('ASN 注册', a.regDate ? `${esc(a.regDate.slice(0, 10))}${a.asCountry ? ` · ${flag(a.asCountry)}${esc(a.asCountry)}` : ''}` : '—')}
       ${row('RPKI', a.rpki ? `<span class="pill pill-${a.rpki === 'valid' ? 'good' : a.rpki === 'invalid' ? 'bad' : 'muted'}">${esc(a.rpki)}</span>` : '—')}
       ${row('ASN 信誉', asnRepTag(run, result))}
-      ${row('人机流量', result.checks.bots.bot !== null ? `<span class="tile-gauge" tabindex="0" data-tip="人机流量：Cloudflare Radar 统计的 AS${a.asn} HTTP 请求里人类与机器的比例">${splitBar(result.checks.bots.human, result.checks.bots.bot)}${botBadge(result.checks.bots.level)}</span>` : '<span class="muted">未配置 Radar</span>')}
+      ${row('人机流量', result.checks.bots.bot !== null ? `<span class="tile-gauge" tabindex="0" data-focus-key="asn-bots" data-tip="人机流量：Cloudflare Radar 统计的 AS${a.asn} HTTP 请求里人类与机器的比例">${splitBar(result.checks.bots.human, result.checks.bots.bot)}${botBadge(result.checks.bots.level)}</span>` : '<span class="muted">未配置 Radar</span>')}
       ${row('所在网段', prefix ? `<span class="mono">${ipText(prefix)}</span>` : '—')}
       ${row('登记信息', rdap ? `${esc(rdap.netname || '')} · ${esc(rdap.orgName || '')}${rdap.regDate ? ` · ${esc(rdap.regDate.slice(0, 10))}` : ''}` : '—')}
       ${row('租赁判断', a.lease ? (leaseTag(result) || '<span class="pill pill-good">未见租赁特征</span>') + (a.lease.reasons.length ? ` <span class="muted small">${esc(a.lease.reasons.join('；'))}</span>` : '') : '—')}
@@ -887,10 +897,10 @@ export function renderGeo(run, result) {
       const tags = Object.entries(d.flags || {}).filter(([, value]) => value === true).map(([key]) => ({ vpn: 'VPN', proxy: '代理', tor: 'Tor', hosting: '机房', relay: '中继', abuser: '滥用', crawler: '爬虫', mobile: '移动', bogon: 'Bogon' })[key]);
       if (d.type && !tags.includes(TYPE_LABEL[d.type])) tags.unshift(TYPE_LABEL[d.type] || d.type);
       return `<tr class="${d.country && consensus && d.country !== consensus ? 'differs' : ''}">
-        <td><a href="${esc(source.site(run.ip))}" target="_blank" rel="noopener noreferrer"${d.sourceNote ? ` data-tip="${esc(d.sourceNote)}"` : ''}>${esc(source.name)}</a></td>
+        <td><a href="${esc(source.site(run.ip))}" target="_blank" rel="noopener noreferrer"${d.sourceNote ? ` data-focus-key="geo-note:${esc(source.id)}" data-tip="${esc(d.sourceNote)}"` : ''}>${esc(source.name)}</a></td>
         <td>${d.country ? `${flag(d.country)}${esc(d.country)}${d.city ? ` · ${esc(d.city)}` : ''}` : '—'}</td>
         <td>${d.asn ? `AS${d.asn}` : '—'}</td><td class="org">${esc(d.org || '—')}</td>
-        <td>${tags.map((tag, i) => `<span class="mini" tabindex="0" data-focus-key="geo:${esc(source.id)}:${i}" data-tip="${esc(`${source.name} 把这个 IP 标为「${tag}」`)}">${esc(tag)}</span>`).join('') || '<span class="muted">—</span>'}</td></tr>`;
+        <td>${tags.map(tag => `<span class="mini" tabindex="0" data-focus-key="geo:${esc(source.id)}:${esc(tag)}" data-tip="${esc(`${source.name} 把这个 IP 标为「${tag}」`)}">${esc(tag)}</span>`).join('') || '<span class="muted">—</span>'}</td></tr>`;
     }).join('')}</tbody></table>` : '<p class="muted">等待来源返回…</p>';
 }
 
@@ -989,12 +999,12 @@ function listTone(item, def) {
   return tone(n && ['attack', 'spam', 'proxy'].includes(def.kind) && (n.whole || n.ips?.length) ? 'warn' : 'good');
 }
 
-function chip({ name, site, status, value, ms, error, note, tone: verdict }) {
+function chip({ key, name, site, status, value, ms, error, note, tone: verdict }) {
   const level = status === 'pending' ? 'pending' : status === 'skip' ? 'none' : status !== 'ok' ? 'off' : verdict.level;
   const label = status === 'ok' ? verdict.label : '';
   const tip = [name, error || value || '', status === 'ok' ? `结论：${label || TONE_WORD[level]}` : '', note || '', '点击打开该来源的查询页 ↗'];
   const foot = (label ? `<span class="src-tag">${esc(label)}</span>` : '') + (status === 'ok' && typeof ms === 'number' ? `<span class="src-ms">${ms} ms</span>` : '');
-  return `<a class="src src-${level}" href="${esc(site)}" target="_blank" rel="noopener noreferrer" data-tip="${esc(tip.filter(Boolean).join('\n'))}">
+  return `<a class="src src-${level}" data-focus-key="${esc(key)}" href="${esc(site)}" target="_blank" rel="noopener noreferrer" data-tip="${esc(tip.filter(Boolean).join('\n'))}">
     <span class="src-head">${icon(level === 'off' ? 'none' : level)}<span class="src-name">${esc(name)}</span>${GO}</span>
     <span class="src-val">${status === 'ok' ? ipText(value || '✓') : status === 'pending' ? '等待返回' : esc(error || '不可用')}</span>
     ${foot ? `<span class="src-foot">${foot}</span>` : ''}
@@ -1017,15 +1027,15 @@ export function renderSources(run) {
     const record = run.sources[source.id];
     const verdict = record.status === 'ok' ? sourceTone(source.id, record.data, run) : tone('none');
     if (record.status === 'ok') verdicts[source.id] = verdict;
-    return { name: source.name, site: source.site(run.ip), status: record.status, value: sourceValue(source.id, record.data), ms: record.ms, error: record.error, note: record.data?.sourceNote, tone: verdict };
+    return { key: `source:${source.id}`, name: source.name, site: source.site(run.ip), status: record.status, value: sourceValue(source.id, record.data), ms: record.ms, error: record.error, note: record.data?.sourceNote, tone: verdict };
   })));
   html.push(sourceGroup('DNS 黑名单', run.dnsbl.map(item => {
     const def = DNSBLS.find(list => list.id === item.id);
-    return { name: def.name, site: def.site(run.ip), status: item.status, value: item.listed ? `收录 ${item.codes.join(' ')}` : '未收录', error: item.error, tone: tone(item.listed ? 'bad' : 'good') };
+    return { key: `dnsbl:${def.id}`, name: def.name, site: def.site(run.ip), status: item.status, value: item.listed ? `收录 ${item.codes.join(' ')}` : '未收录', error: item.error, tone: tone(item.listed ? 'bad' : 'good') };
   })));
   html.push(sourceGroup('威胁 / 机房 IP 列表', run.lists.map(item => {
     const def = CIDR_LISTS.find(list => list.id === item.id);
-    return { name: def.name, site: def.site(), status: item.status, value: listValue(item), error: item.error, tone: listTone(item, def) };
+    return { key: `list:${def.id}`, name: def.name, site: def.site(), status: item.status, value: listValue(item), error: item.error, tone: listTone(item, def) };
   })));
   $('sources').innerHTML = html.join('');
   // Cross-check links that are also sources carry the same colour.
@@ -1066,7 +1076,7 @@ export function applyMask(on) {
   masked = on;
   document.querySelectorAll('.ipv').forEach(node => { node.textContent = on ? maskIP(node.dataset.ip) : node.dataset.ip; });
   document.querySelectorAll('.ipt').forEach(node => { node.textContent = scrub(node.dataset.raw); });
-  if (tipFor) setTipContent(tipFor.dataset.tip);
+  if (tipFor?.isConnected && tipFor.dataset.tip) setTipContent(tipFor.dataset.tip);
   const input = $('ip-input');
   input.classList.toggle('is-masked', masked && Boolean(input.value));
   $('mask-toggle').textContent = masked ? '显示 IP' : '隐藏 IP';
